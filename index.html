@@ -5,215 +5,536 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DominaWeb3 Analytics</title>
   <style>
-    :root{
-      --bg:#060b14;
-      --panel:#0f172a;
-      --panel-2:#111827;
-      --line:rgba(148,163,184,.16);
-      --text:#eef3f8;
-      --muted:#8ca0b3;
-      --green:#24c36a;
-      --green-dark:#15803d;
-      --amber:#f3b63f;
-      --shadow:0 16px 36px rgba(2,6,23,.38);
-      --radius:8px;
-      color-scheme:dark;
+    :root {
+      --bg: #f4f5ef;
+      --surface: #ffffff;
+      --surface-soft: #f8f8f4;
+      --text: #17211c;
+      --muted: #5f6d66;
+      --line: #dbe1db;
+      --green: #1d8f53;
+      --green-dark: #15653b;
+      --green-soft: #e9f5ee;
+      --ink-soft: #233029;
+      --shadow: 0 14px 34px rgba(23, 33, 28, 0.06);
+      --radius: 8px;
     }
 
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%;background:radial-gradient(circle at top, rgba(36,195,106,.12), transparent 26%), linear-gradient(180deg, var(--bg) 0%, #07101d 100%);color:var(--text);font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif}
-    body{line-height:1.5}
-    button{font:inherit}
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: linear-gradient(180deg, #fbfcf8 0%, var(--bg) 100%); color: var(--text); font-family: "Manrope", "Inter", system-ui, sans-serif; }
+    body { line-height: 1.45; }
+    button, select, input { font: inherit; }
 
-    .shell{max-width:1440px;margin:0 auto;padding:24px}
-    .hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:16px;align-items:start;margin-bottom:16px}
-    .panel{background:linear-gradient(180deg, rgba(17,24,39,.98), rgba(15,23,42,.98));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .hero-copy{padding:24px}
-    .status{padding:18px}
-    .eyebrow{margin:0 0 10px;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--green)}
-    h1{margin:0;font-size:clamp(2rem,3.1vw,3.35rem);line-height:1.02;letter-spacing:-.03em}
-    .lead{margin:12px 0 0;max-width:760px;color:var(--muted);font-size:1rem}
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 40px; }
+    .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: end; margin-bottom: 20px; }
+    .eyebrow { margin: 0 0 10px; color: var(--green-dark); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(2rem, 3vw, 3.35rem); line-height: 1; letter-spacing: -0.03em; }
+    .lead { margin: 10px 0 0; max-width: 680px; color: var(--muted); font-size: 1rem; }
 
-    .status-top{display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:rgba(36,195,106,.14);color:#c8ffe0;font-weight:800;font-size:.82rem;white-space:nowrap}
-    .pill .dot{width:8px;height:8px;border-radius:999px;background:var(--green);box-shadow:0 0 0 4px rgba(36,195,106,.12)}
-    .action{border:0;border-radius:var(--radius);padding:11px 14px;background:linear-gradient(180deg,var(--green),var(--green-dark));color:#fff;font-weight:800;cursor:pointer;transition:transform .15s ease, opacity .15s ease}
-    .action:hover{opacity:.95}
-    .action:active{transform:translateY(1px)}
-
-    .meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
-    .meta div{padding:12px;border:1px solid var(--line);border-radius:var(--radius);background:rgba(255,255,255,.02)}
-    .meta span{display:block;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em}
-    .meta strong{display:block;margin-top:6px;font-size:1rem}
-
-    .periods{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px}
-    .period{border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--text);border-radius:999px;padding:10px 14px;cursor:pointer;font-weight:700;transition:background .15s ease,border-color .15s ease,transform .15s ease}
-    .period:hover{transform:translateY(-1px)}
-    .period.active{background:var(--green);border-color:var(--green);color:#fff}
-
-    .note{margin:0 0 16px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius);background:rgba(255,255,255,.02);color:var(--muted);font-size:.92rem}
-    .note strong{color:var(--text)}
-
-    .summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:16px}
-    .card{padding:14px}
-    .card span{display:block;color:var(--muted);font-size:.8rem;line-height:1.3}
-    .card strong{display:block;margin-top:10px;font-size:1.8rem;line-height:1}
-    .card em{display:block;margin-top:8px;color:var(--green);font-style:normal;font-size:.82rem;font-weight:700}
-
-    .grid-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
-    .section{padding:16px}
-    .section h2{margin:0;font-size:1rem;letter-spacing:-.01em}
-    .section .sub{margin:8px 0 14px;color:var(--muted);font-size:.9rem}
-    .section .subhead{margin:14px 0 10px;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-
-    .stack{display:grid;gap:12px}
-    .bar-row{display:grid;gap:6px}
-    .bar-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-    .bar-head strong{font-size:.92rem;font-weight:800}
-    .bar-head span{color:var(--muted);font-size:.82rem}
-    .bar-track{height:10px;border-radius:999px;background:rgba(148,163,184,.12);overflow:hidden}
-    .bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),#71f0a3)}
-
-    .row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.12)}
-    .row:last-child{border-bottom:none}
-    .row strong{display:block;font-size:.93rem}
-    .row small{display:block;color:var(--muted);margin-top:2px}
-    .row span{color:var(--text);white-space:nowrap}
-
-    .event{display:grid;grid-template-columns:72px 1fr 1fr;gap:10px;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.12)}
-    .event:last-child{border-bottom:none}
-    .event strong{display:block;font-size:.92rem}
-    .event span{color:var(--muted);font-size:.88rem}
-
-    .footer{margin:0;color:var(--muted);font-size:.8rem;line-height:1.55}
-
-    @media (max-width:1180px){
-      .hero,.grid-two{grid-template-columns:1fr}
-      .summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .statusbox {
+      display: grid;
+      gap: 8px;
+      min-width: 240px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
     }
 
-    @media (max-width:760px){
-      .shell{padding:16px}
-      .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .meta{grid-template-columns:1fr}
-      .event{grid-template-columns:64px 1fr}
-      .event span:last-child{grid-column:1 / -1}
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--green); }
+    .statuscopy { color: var(--muted); font-size: 0.92rem; }
+
+    .periods {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .period {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--ink-soft);
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .period.active {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-pad { padding: 18px; }
+    .panel-title { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
+    .panel-copy { margin: 8px 0 0; color: var(--muted); font-size: 0.94rem; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metric {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+
+    .metric span { display: block; color: var(--muted); font-size: 0.8rem; }
+    .metric strong { display: block; margin-top: 8px; font-size: 1.9rem; line-height: 1; letter-spacing: -0.03em; }
+    .metric small { display: block; margin-top: 8px; color: var(--green-dark); font-size: 0.84rem; font-weight: 700; }
+
+    .explain {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .explain-block {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+
+    .explain-block strong { display: block; font-size: 0.92rem; }
+    .explain-block span { display: block; margin-top: 6px; color: var(--muted); font-size: 0.9rem; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .control {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .control label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .control select,
+    .control input,
+    .refresh {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--text);
+    }
+
+    .refresh {
+      cursor: pointer;
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .viz-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .chart-meta { color: var(--muted); font-size: 0.92rem; max-width: 620px; }
+    .chart-target { min-height: 320px; display: grid; align-items: center; }
+
+    .bar-stack { display: grid; gap: 14px; }
+    .bar-row { display: grid; gap: 6px; }
+    .bar-head { display: flex; justify-content: space-between; gap: 12px; align-items: end; }
+    .bar-head strong { font-size: 0.95rem; }
+    .bar-head span { color: var(--muted); font-size: 0.84rem; text-align: right; }
+    .bar-track { height: 12px; border-radius: 999px; background: #edf1ec; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--green), #4fc27d); }
+
+    .ring-wrap {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .ring-card { display: grid; justify-items: center; gap: 10px; }
+    .ring-total { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+    .ring-label { color: var(--muted); font-size: 0.9rem; text-align: center; }
+    .ring-legend { display: grid; gap: 10px; }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .legend-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .swatch { width: 12px; height: 12px; border-radius: 999px; }
+    .legend-row strong { display: block; font-size: 0.93rem; }
+    .legend-row span { display: block; color: var(--muted); font-size: 0.82rem; }
+    .legend-row em { font-style: normal; font-weight: 800; color: var(--ink-soft); }
+
+    .list-stack { display: grid; gap: 12px; }
+    .list-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .list-row:last-child { border-bottom: 0; }
+    .list-row strong { display: block; font-size: 0.94rem; }
+    .list-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 0.84rem; }
+    .list-row span { font-weight: 800; white-space: nowrap; }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 220px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-align: center;
+      padding: 16px;
+      background: var(--surface-soft);
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .recent-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .recent-row:last-child { border-bottom: 0; }
+    .recent-row time { color: var(--muted); font-size: 0.84rem; }
+    .recent-row strong { display: block; font-size: 0.94rem; }
+    .recent-row span { display: block; margin-top: 4px; color: var(--muted); font-size: 0.86rem; }
+
+    .helper-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    @media (max-width: 1100px) {
+      .hero-grid,
+      .viz-grid,
+      .bottom-grid,
+      .topbar { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(1180px, calc(100% - 20px)); padding-top: 16px; }
+      .summary-grid,
+      .controls { grid-template-columns: 1fr; }
+      .ring-wrap { grid-template-columns: 1fr; }
+      .chart-target { min-height: 260px; }
+      .recent-row { grid-template-columns: 1fr; gap: 4px; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
-    <header class="hero">
-      <div class="panel hero-copy">
+    <section class="topbar">
+      <div>
         <p class="eyebrow">DominaWeb3 Analytics</p>
-        <h1>Embudo, sesiones y comportamiento por periodo</h1>
-        <p class="lead">Tiempo real, diario, semanal, mensual y todo el tiempo en una sola vista. La página lee el reporte correcto según el periodo que selecciones y se conecta al backend cuando la base esté disponible.</p>
+        <h1>Resumen simple de lo que hace la gente</h1>
+        <p class="lead">Elige un periodo, el dato que quieres mirar y el tipo de grafico. La idea es que puedas entender rapido que paso, donde se detuvo la gente y que vale la pena revisar primero.</p>
       </div>
-
-      <aside class="panel status">
-        <div class="status-top">
-          <div class="pill" id="source-pill"><span class="dot"></span><span>sample</span></div>
-          <button class="action" id="refresh-btn" type="button">Refrescar</button>
-        </div>
-        <div class="meta">
-          <div>
-            <span>Periodo</span>
-            <strong id="period-label">Todo el tiempo</strong>
-          </div>
-          <div>
-            <span>Eventos</span>
-            <strong id="events-count">--</strong>
-          </div>
-          <div>
-            <span>Actualizado</span>
-            <strong id="updated-at">--</strong>
-          </div>
-        </div>
+      <aside class="statusbox">
+        <div class="status-pill" id="source-pill"><span class="dot"></span><span>sample</span></div>
+        <strong id="status-title">Datos listos</strong>
+        <span class="statuscopy" id="status-copy">Cargando el ultimo reporte.</span>
       </aside>
-    </header>
+    </section>
 
     <nav class="periods" id="periods"></nav>
 
-    <p class="note"><strong>Estado:</strong> el colector ya recibe eventos. Si conectas una base, este panel cambia de datos de muestra a datos reales sin tocar la UI.</p>
+    <section class="hero-grid">
+      <div class="panel panel-pad">
+        <h2 class="panel-title">Lo mas importante</h2>
+        <p class="panel-copy">Estas cifras cuentan la historia principal sin tener que leer todo el panel.</p>
+        <div class="summary-grid" id="summary-grid"></div>
+      </div>
 
-    <section class="panel card-grid summary-grid" id="summary-grid"></section>
-
-    <section class="grid-two">
-      <article class="panel section">
-        <h2>Funnel</h2>
-        <p class="sub">Del primer hit al clic de pago.</p>
-        <div class="stack" id="funnel-stack"></div>
-      </article>
-
-      <article class="panel section">
-        <h2>Preguntas</h2>
-        <p class="sub">Cuántas respuestas obtiene cada paso y cuánto tarda cada una.</p>
-        <div class="stack" id="question-stack"></div>
-      </article>
+      <aside class="panel panel-pad explain" id="explain-box">
+        <div class="explain-block">
+          <strong>Que significa esto</strong>
+          <span id="explain-copy">Si una cifra baja mucho entre un paso y otro, ahi se esta yendo la gente.</span>
+        </div>
+        <div class="explain-block">
+          <strong>Periodo activo</strong>
+          <span id="period-copy">Todo el tiempo</span>
+        </div>
+        <div class="explain-block">
+          <strong>Actualizado</strong>
+          <span id="updated-copy">--</span>
+        </div>
+      </aside>
     </section>
 
-    <section class="grid-two">
-      <article class="panel section">
-        <h2>Lugares calientes</h2>
-        <p class="sub">Las secciones donde la atención se queda más tiempo.</p>
-        <div class="stack" id="hotspot-stack"></div>
-      </article>
-
-      <article class="panel section">
-        <h2>Geografía y dispositivo</h2>
-        <p class="sub">Países, ciudades y tipo de pantalla.</p>
-        <div class="subhead">Países y ciudades</div>
-        <div class="stack" id="geo-stack"></div>
-        <div class="subhead">Dispositivos</div>
-        <div class="stack" id="device-stack"></div>
-      </article>
+    <section class="controls">
+      <div class="control">
+        <label for="dataset-select">Dato que quieres ver</label>
+        <select id="dataset-select"></select>
+      </div>
+      <div class="control">
+        <label for="chart-select">Como quieres verlo</label>
+        <select id="chart-select"></select>
+      </div>
+      <div class="control">
+        <label for="limit-select">Cuantos resultados mostrar</label>
+        <select id="limit-select">
+          <option value="3">3</option>
+          <option value="5" selected>5</option>
+          <option value="8">8</option>
+          <option value="12">12</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="search-input">Filtrar por palabra</label>
+        <input id="search-input" type="text" placeholder="Ejemplo: mobile, paso, colombia">
+      </div>
     </section>
 
-    <section class="grid-two">
-      <article class="panel section">
-        <h2>Aperturas</h2>
-        <p class="sub">Bloques que se expanden y generan intención.</p>
-        <div class="stack" id="faq-stack"></div>
+    <section class="viz-grid">
+      <article class="panel panel-pad">
+        <div class="chart-head">
+          <div>
+            <h2 class="panel-title" id="chart-title">Recorrido principal</h2>
+            <p class="chart-meta" id="chart-description">Muestra si la gente sigue avanzando o se queda a mitad del camino.</p>
+          </div>
+          <button class="refresh" id="refresh-btn" type="button">Refrescar</button>
+        </div>
+        <div class="chart-target" id="chart-target"></div>
+        <p class="helper-note" id="chart-note">Cada barra o parte del grafico representa una parte del camino.</p>
       </article>
 
-      <article class="panel section">
-        <h2>Eventos recientes</h2>
-        <p class="sub">La secuencia corta que te ayuda a leer el recorrido.</p>
+      <aside class="panel panel-pad">
+        <h2 class="panel-title">Detalle del dato seleccionado</h2>
+        <p class="panel-copy" id="detail-copy">Aqui ves el mismo dato en formato lista para leerlo mas facil.</p>
+        <div class="list-stack" id="detail-list"></div>
+      </aside>
+    </section>
+
+    <section class="bottom-grid">
+      <article class="panel panel-pad">
+        <h2 class="panel-title">Actividad reciente</h2>
+        <p class="panel-copy">Los ultimos movimientos ayudan a leer el recorrido real de una persona.</p>
         <div id="events-stack"></div>
       </article>
-    </section>
 
-    <p class="footer">Endpoint de captura preparado para preguntas, VSL, aperturas, dispositivo, país, ciudad, scroll y clics al pago.</p>
+      <article class="panel panel-pad">
+        <h2 class="panel-title">Lectura rapida</h2>
+        <p class="panel-copy">Este bloque resume lo que vale la pena mirar primero segun el dato activo.</p>
+        <div class="list-stack" id="insight-list"></div>
+      </article>
+    </section>
   </main>
 
   <script>
     const PERIODS = [
       { key: 'realtime', label: 'Tiempo real', hint: '15 min' },
       { key: 'daily', label: 'Diario', hint: '24 h' },
-      { key: 'weekly', label: 'Semanal', hint: '7 días' },
-      { key: 'monthly', label: 'Mensual', hint: '30 días' },
-      { key: 'all-time', label: 'Todo el tiempo', hint: 'Histórico' },
+      { key: 'weekly', label: 'Semanal', hint: '7 dias' },
+      { key: 'monthly', label: 'Mensual', hint: '30 dias' },
+      { key: 'all-time', label: 'Todo el tiempo', hint: 'Historico' },
     ];
 
+    const DATASETS = {
+      funnel: {
+        label: 'Recorrido principal',
+        description: 'Cuanta gente sigue avanzando paso a paso.',
+        help: 'Si una barra baja mucho, ahi se te esta cayendo gente.',
+        items(report) {
+          return (report.funnel || []).map((item) => ({
+            label: item.label,
+            value: Number(item.value) || 0,
+            detail: item.detail || '',
+          }));
+        },
+      },
+      questions_yes: {
+        label: 'Si por pregunta',
+        description: 'Que tanto acepta la gente cada pregunta del filtro.',
+        help: 'Si el porcentaje de si baja, esa pregunta esta frenando el avance.',
+        items(report) {
+          return (report.questions || []).map((item) => ({
+            label: item.label,
+            value: Number(item.yes) || 0,
+            detail: `${item.detail || ''} · tarda ${item.avgTime || '0s'}`,
+          }));
+        },
+      },
+      questions_exit: {
+        label: 'Salida por pregunta',
+        description: 'Cuanta gente dice no o sale en cada pregunta.',
+        help: 'Si esta cifra sube, el filtro esta siendo demasiado fuerte o poco claro.',
+        items(report) {
+          return (report.questions || []).map((item) => ({
+            label: item.label,
+            value: Number(String(item.exitAfter || '0').replace(/[^0-9.]/g, '')) || 0,
+            detail: `${item.detail || ''} · tiempo ${item.avgTime || '0s'}`,
+          }));
+        },
+      },
+      hotspots: {
+        label: 'Zonas mas vistas',
+        description: 'Donde se queda mas tiempo la atencion.',
+        help: 'Esto te dice que parte de la pagina retiene mejor a la gente.',
+        items(report) {
+          return (report.hotspots || []).map((item) => ({
+            label: item.label,
+            value: Number(item.value) || 0,
+            detail: item.detail || '',
+          }));
+        },
+      },
+      devices: {
+        label: 'Dispositivos',
+        description: 'Desde donde entra la gente: celular, tablet o computador.',
+        help: 'Si casi todo llega desde celular, las decisiones deben pensarse primero para movil.',
+        items(report) {
+          return (report.devices || []).map((item) => ({
+            label: item.label,
+            value: Number(String(item.value || '0').replace(/[^0-9.]/g, '')) || 0,
+            detail: item.detail || '',
+          }));
+        },
+      },
+      geo: {
+        label: 'Paises y ciudades',
+        description: 'De donde vienen las personas que entran.',
+        help: 'Esto sirve para saber si tu trafico coincide con el mercado que quieres.',
+        items(report) {
+          return (report.geo || []).map((item) => ({
+            label: item.label,
+            value: Number(String(item.value || '0').replace(/[^0-9.]/g, '')) || 0,
+            detail: item.sub || item.detail || '',
+          }));
+        },
+      },
+      faq: {
+        label: 'Bloques que abren',
+        description: 'Que bloque o pregunta abre mas la gente antes de decidir.',
+        help: 'Si un bloque se abre mucho, esa parte esta resolviendo o provocando dudas.',
+        items(report) {
+          return (report.faq || []).map((item) => ({
+            label: item.label,
+            value: Number(item.opens) || 0,
+            detail: item.detail || 'Aperturas',
+          }));
+        },
+      },
+    };
+
+    const CHARTS = {
+      bars: { label: 'Barras' },
+      ring: { label: 'Anillo' },
+      list: { label: 'Solo lista' },
+    };
+
+    const COLORS = ['#1d8f53', '#4dad73', '#7ec592', '#aacfae', '#c9ddc9', '#dce8dc', '#9ebca5', '#7a9f84'];
+
     const state = {
-      period: new URLSearchParams(window.location.search).get('period') || 'all-time',
+      period: new URLSearchParams(window.location.search).get('period') || 'realtime',
+      dataset: 'funnel',
+      chart: 'bars',
+      limit: 5,
+      query: '',
+      report: null,
     };
 
     const els = {
       periods: document.getElementById('periods'),
-      summary: document.getElementById('summary-grid'),
-      funnel: document.getElementById('funnel-stack'),
-      questions: document.getElementById('question-stack'),
-      hotspots: document.getElementById('hotspot-stack'),
-      geo: document.getElementById('geo-stack'),
-      devices: document.getElementById('device-stack'),
-      faq: document.getElementById('faq-stack'),
-      events: document.getElementById('events-stack'),
       sourcePill: document.getElementById('source-pill'),
-      periodLabel: document.getElementById('period-label'),
-      eventsCount: document.getElementById('events-count'),
-      updatedAt: document.getElementById('updated-at'),
+      statusTitle: document.getElementById('status-title'),
+      statusCopy: document.getElementById('status-copy'),
+      summary: document.getElementById('summary-grid'),
+      periodCopy: document.getElementById('period-copy'),
+      updatedCopy: document.getElementById('updated-copy'),
+      explainCopy: document.getElementById('explain-copy'),
+      datasetSelect: document.getElementById('dataset-select'),
+      chartSelect: document.getElementById('chart-select'),
+      limitSelect: document.getElementById('limit-select'),
+      searchInput: document.getElementById('search-input'),
       refreshBtn: document.getElementById('refresh-btn'),
+      chartTitle: document.getElementById('chart-title'),
+      chartDescription: document.getElementById('chart-description'),
+      chartTarget: document.getElementById('chart-target'),
+      chartNote: document.getElementById('chart-note'),
+      detailCopy: document.getElementById('detail-copy'),
+      detailList: document.getElementById('detail-list'),
+      events: document.getElementById('events-stack'),
+      insights: document.getElementById('insight-list'),
     };
 
     function esc(value = '') {
@@ -225,10 +546,77 @@
         .replaceAll("'", '&#39;');
     }
 
-    function formatUpdatedAt(value) {
+    function formatDate(value) {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return '--';
       return date.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function parseCount(text) {
+      return Number(String(text || '0').replace(/[^0-9.]/g, '')) || 0;
+    }
+
+    function datasetConfig() {
+      return DATASETS[state.dataset] || DATASETS.funnel;
+    }
+
+    function currentItems() {
+      const config = datasetConfig();
+      const items = config.items(state.report || {}) || [];
+      const filtered = items.filter((item) => {
+        const needle = state.query.trim().toLowerCase();
+        if (!needle) return true;
+        return `${item.label} ${item.detail}`.toLowerCase().includes(needle);
+      });
+      return filtered.slice(0, state.limit);
+    }
+
+    function buildSummaryCards(report) {
+      const funnel = report.funnel || [];
+      const summary = report.summaryCards || [];
+      const vsl = funnel.find((item) => item.label.toLowerCase().includes('vsl'));
+      const cta = funnel.find((item) => item.label.toLowerCase().includes('cta'));
+      const timeToPlay = summary.find((item) => item.label.toLowerCase().includes('hasta play'));
+      const watchTime = summary.find((item) => item.label.toLowerCase().includes('vsl'));
+
+      return [
+        {
+          label: 'Personas que entraron',
+          value: report.totals ? report.totals.sessions || 0 : 0,
+          note: `${report.periodLabel || 'Periodo actual'}`,
+        },
+        {
+          label: 'Vieron el video',
+          value: vsl ? parseCount(vsl.detail) : 0,
+          note: 'Personas que dieron play',
+        },
+        {
+          label: 'Tocaron ir al pago',
+          value: cta ? parseCount(cta.detail) : 0,
+          note: 'Personas que llegaron al boton',
+        },
+        {
+          label: 'Tiempo hasta dar play',
+          value: timeToPlay ? timeToPlay.value : '0s',
+          note: 'Promedio antes de empezar el video',
+        },
+        {
+          label: 'Tiempo viendo el video',
+          value: watchTime ? watchTime.value : '0s',
+          note: 'Promedio de reproduccion',
+        },
+      ];
+    }
+
+    function renderSummary(report) {
+      const cards = buildSummaryCards(report);
+      els.summary.innerHTML = cards.map((card) => `
+        <article class="metric">
+          <span>${esc(card.label)}</span>
+          <strong>${esc(card.value)}</strong>
+          <small>${esc(card.note)}</small>
+        </article>
+      `).join('');
     }
 
     function renderPeriodButtons() {
@@ -250,97 +638,228 @@
       });
     }
 
-    function renderSummary(report) {
-      els.summary.innerHTML = report.summaryCards.map((card) => `
-        <article class="panel card">
-          <span>${esc(card.label)}</span>
-          <strong>${esc(card.value)}</strong>
-          <em>${esc(card.delta || report.periodLabel)}</em>
-        </article>
+    function renderSelectOptions() {
+      els.datasetSelect.innerHTML = Object.entries(DATASETS).map(([key, value]) => `
+        <option value="${esc(key)}" ${key === state.dataset ? 'selected' : ''}>${esc(value.label)}</option>
       `).join('');
+
+      els.chartSelect.innerHTML = Object.entries(CHARTS).map(([key, value]) => `
+        <option value="${esc(key)}" ${key === state.chart ? 'selected' : ''}>${esc(value.label)}</option>
+      `).join('');
+
+      els.limitSelect.value = String(state.limit);
+      els.searchInput.value = state.query;
+    }
+
+    function renderStatus(report) {
+      const isDatabase = report.source === 'database';
+      els.sourcePill.innerHTML = `<span class="dot"></span><span>${isDatabase ? 'datos reales' : 'demo'}</span>`;
+      els.statusTitle.textContent = isDatabase ? 'Datos reales activos' : 'Vista de ejemplo';
+      els.statusCopy.textContent = isDatabase
+        ? `Periodo: ${report.periodLabel || state.period}. Eventos leidos: ${report.totals ? report.totals.events : 0}.`
+        : 'La base no esta respondiendo y la vista usa datos de muestra.';
+      els.periodCopy.textContent = report.periodLabel || '--';
+      els.updatedCopy.textContent = formatDate(report.updatedAt || new Date().toISOString());
+      els.explainCopy.textContent = datasetConfig().help;
     }
 
     function renderBars(items) {
+      if (!items.length) {
+        return '<div class="empty">No hay datos para ese filtro.</div>';
+      }
+
       const max = Math.max(...items.map((item) => Number(item.value) || 0), 1);
-      return items.map((item) => {
+      return `<div class="bar-stack">${items.map((item) => {
         const value = Number(item.value) || 0;
         const width = Math.max(6, Math.round((value / max) * 100));
         return `
           <div class="bar-row">
             <div class="bar-head">
               <strong>${esc(item.label)}</strong>
-              <span>${esc(item.detail || `${value}%`)}</span>
+              <span>${esc(item.value)}${item.detail ? ` · ${esc(item.detail)}` : ''}</span>
             </div>
             <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
           </div>
         `;
-      }).join('');
+      }).join('')}</div>`;
     }
 
-    function renderQuestions(report) {
-      els.questions.innerHTML = report.questions.map((item) => `
-        <div class="panel" style="padding:14px;">
-          <div class="bar-head">
-            <strong>${esc(item.label)}</strong>
-            <span>${esc(item.avgTime)} · salida ${esc(item.exitAfter)}</span>
-          </div>
-          <div style="margin-top:8px; color:var(--muted);">${esc(item.prompt)}</div>
-          <div style="margin-top:12px;" class="bar-track"><div class="bar-fill" style="width:${Math.max(6, item.yes)}%"></div></div>
-          <div class="bar-head" style="margin-top:6px;">
-            <span>Sí ${esc(String(item.yes))}%</span>
-            <span>No ${esc(String(item.no))}%</span>
-          </div>
-          <div style="margin-top:8px; color:var(--muted); font-size:.82rem;">${esc(item.detail || '')}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderRows(items, target, emptyLabel) {
+    function renderRing(items) {
       if (!items.length) {
-        target.innerHTML = `<div style="color:var(--muted);">${esc(emptyLabel)}</div>`;
-        return;
+        return '<div class="empty">No hay datos para ese filtro.</div>';
       }
 
-      target.innerHTML = items.map((item) => `
-        <div class="row">
+      const total = items.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+      if (!total) {
+        return '<div class="empty">Los datos existen, pero el valor actual es 0.</div>';
+      }
+
+      const radius = 54;
+      const circumference = 2 * Math.PI * radius;
+      let offset = 0;
+
+      const circles = items.map((item, index) => {
+        const value = Number(item.value) || 0;
+        const dash = (value / total) * circumference;
+        const circle = `<circle cx="80" cy="80" r="${radius}" fill="none" stroke="${COLORS[index % COLORS.length]}" stroke-width="20" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="-${offset}" transform="rotate(-90 80 80)"></circle>`;
+        offset += dash;
+        return circle;
+      }).join('');
+
+      const legend = items.map((item, index) => {
+        const share = total ? Math.round(((Number(item.value) || 0) / total) * 100) : 0;
+        return `
+          <div class="legend-row">
+            <span class="swatch" style="background:${COLORS[index % COLORS.length]}"></span>
+            <div>
+              <strong>${esc(item.label)}</strong>
+              <span>${esc(item.detail || 'Sin detalle')}</span>
+            </div>
+            <em>${share}%</em>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="ring-wrap">
+          <div class="ring-card">
+            <svg viewBox="0 0 160 160" width="180" height="180" aria-hidden="true">
+              <circle cx="80" cy="80" r="${radius}" fill="none" stroke="#e9eeea" stroke-width="20"></circle>
+              ${circles}
+            </svg>
+            <div class="ring-total">${esc(total)}</div>
+            <div class="ring-label">Total del filtro activo</div>
+          </div>
+          <div class="ring-legend">${legend}</div>
+        </div>
+      `;
+    }
+
+    function renderList(items) {
+      if (!items.length) {
+        return '<div class="empty">No hay datos para ese filtro.</div>';
+      }
+
+      return `<div class="list-stack">${items.map((item) => `
+        <div class="list-row">
           <div>
             <strong>${esc(item.label)}</strong>
-            <small>${esc(item.sub || item.detail || '')}</small>
+            <small>${esc(item.detail || 'Sin detalle')}</small>
           </div>
-          <span>${esc(item.value || item.opens || '')}</span>
+          <span>${esc(item.value)}</span>
         </div>
-      `).join('');
+      `).join('')}</div>`;
+    }
+
+    function renderChart() {
+      const items = currentItems();
+      const config = datasetConfig();
+      els.chartTitle.textContent = config.label;
+      els.chartDescription.textContent = config.description;
+      els.chartNote.textContent = config.help;
+      els.detailCopy.textContent = `Estas viendo ${items.length} resultados del bloque ${config.label.toLowerCase()}.`;
+
+      if (state.chart === 'ring') {
+        els.chartTarget.innerHTML = renderRing(items);
+      } else if (state.chart === 'list') {
+        els.chartTarget.innerHTML = renderList(items);
+      } else {
+        els.chartTarget.innerHTML = renderBars(items);
+      }
+
+      els.detailList.innerHTML = renderList(items);
     }
 
     function renderEvents(report) {
-      if (!report.recentEvents.length) {
-        els.events.innerHTML = '<div style="color:var(--muted);">Sin eventos recientes.</div>';
+      const items = report.recentEvents || [];
+      if (!items.length) {
+        els.events.innerHTML = '<div class="empty">Aun no hay actividad reciente.</div>';
         return;
       }
 
-      els.events.innerHTML = report.recentEvents.map((item) => `
-        <div class="event">
-          <span>${esc(item.time)}</span>
-          <strong>${esc(item.event)}</strong>
-          <span>${esc(item.detail)}</span>
+      els.events.innerHTML = items.map((item) => `
+        <div class="recent-row">
+          <time>${esc(item.time)}</time>
+          <div>
+            <strong>${esc(item.event)}</strong>
+            <span>${esc(item.detail)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function buildInsights(report) {
+      const funnel = report.funnel || [];
+      const questions = report.questions || [];
+      const hotspots = report.hotspots || [];
+      const devices = report.devices || [];
+      const topDrop = funnel.slice(1).sort((a, b) => (Number(a.value) || 0) - (Number(b.value) || 0))[0];
+      const mainQuestion = questions.sort((a, b) => (Number(String(b.exitAfter || '0').replace(/[^0-9.]/g, '')) || 0) - (Number(String(a.exitAfter || '0').replace(/[^0-9.]/g, '')) || 0))[0];
+      const mainHotspot = hotspots[0];
+      const mainDevice = devices[0];
+
+      const insights = [];
+
+      if (topDrop) {
+        insights.push({
+          label: 'Paso mas delicado',
+          detail: `${topDrop.label} · ${topDrop.detail || `${topDrop.value}%`}`,
+          value: 'Mirar primero',
+        });
+      }
+
+      if (mainQuestion) {
+        insights.push({
+          label: 'Pregunta con mas salida',
+          detail: `${mainQuestion.label} · sale ${mainQuestion.exitAfter || '0%'}`,
+          value: mainQuestion.avgTime || '--',
+        });
+      }
+
+      if (mainHotspot) {
+        insights.push({
+          label: 'Zona con mas atencion',
+          detail: `${mainHotspot.label} · ${mainHotspot.detail || ''}`,
+          value: 'Retiene',
+        });
+      }
+
+      if (mainDevice) {
+        insights.push({
+          label: 'Pantalla dominante',
+          detail: `${mainDevice.label} · ${mainDevice.detail || ''}`,
+          value: mainDevice.value || '--',
+        });
+      }
+
+      return insights;
+    }
+
+    function renderInsights(report) {
+      const insights = buildInsights(report);
+      if (!insights.length) {
+        els.insights.innerHTML = '<div class="empty">Todavia no hay suficientes datos para resumir.</div>';
+        return;
+      }
+
+      els.insights.innerHTML = insights.map((item) => `
+        <div class="list-row">
+          <div>
+            <strong>${esc(item.label)}</strong>
+            <small>${esc(item.detail)}</small>
+          </div>
+          <span>${esc(item.value)}</span>
         </div>
       `).join('');
     }
 
     function renderReport(report) {
-      els.sourcePill.innerHTML = `<span class="dot"></span><span>${esc(report.source || 'sample')}</span>`;
-      els.periodLabel.textContent = report.periodLabel || 'Todo el tiempo';
-      els.eventsCount.textContent = report.totals ? new Intl.NumberFormat('es-CO').format(report.totals.events || 0) : '--';
-      els.updatedAt.textContent = formatUpdatedAt(report.updatedAt || new Date().toISOString());
-
+      state.report = report;
+      renderStatus(report);
       renderSummary(report);
-      els.funnel.innerHTML = renderBars(report.funnel || []);
-      renderQuestions(report);
-      els.hotspots.innerHTML = renderBars(report.hotspots || []);
-      renderRows(report.geo || [], els.geo, 'Sin datos de geo todavía.');
-      renderRows(report.devices || [], els.devices, 'Sin datos de dispositivo todavía.');
-      renderRows(report.faq || [], els.faq, 'Sin aperturas todavía.');
+      renderChart();
       renderEvents(report);
+      renderInsights(report);
     }
 
     async function loadReport(period) {
@@ -360,15 +879,42 @@
         renderReport(report);
       } catch (error) {
         console.error(error);
-        els.summary.innerHTML = '<div class="panel card"><strong>Error</strong><span>No se pudo cargar el reporte.</span></div>';
+        els.chartTarget.innerHTML = '<div class="empty">No se pudo cargar el reporte.</div>';
       } finally {
         els.refreshBtn.disabled = false;
         els.refreshBtn.textContent = 'Refrescar';
       }
     }
 
-    els.refreshBtn.addEventListener('click', refresh);
+    function bindControls() {
+      els.datasetSelect.addEventListener('change', (event) => {
+        state.dataset = event.target.value;
+        renderChart();
+        renderInsights(state.report || {});
+        renderStatus(state.report || {});
+      });
+
+      els.chartSelect.addEventListener('change', (event) => {
+        state.chart = event.target.value;
+        renderChart();
+      });
+
+      els.limitSelect.addEventListener('change', (event) => {
+        state.limit = Number(event.target.value) || 5;
+        renderChart();
+      });
+
+      els.searchInput.addEventListener('input', (event) => {
+        state.query = event.target.value || '';
+        renderChart();
+      });
+
+      els.refreshBtn.addEventListener('click', refresh);
+    }
+
     renderPeriodButtons();
+    renderSelectOptions();
+    bindControls();
     refresh();
   </script>
 </body>
