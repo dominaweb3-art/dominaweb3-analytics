@@ -28,12 +28,12 @@ const ENTRY_EVENTS = new Set([
 ]);
 
 function normalizePeriod(value) {
-  const key = String(value || 'all-time').trim().toLowerCase();
-  return Object.prototype.hasOwnProperty.call(PERIODS, key) ? key : 'all-time';
+  const key = String(value || 'daily').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(PERIODS, key) ? key : 'daily';
 }
 
 function getPeriodConfig(periodKey) {
-  const config = PERIODS[periodKey] || PERIODS['all-time'];
+  const config = PERIODS[periodKey] || PERIODS.daily;
   const now = new Date();
   let since = null;
 
@@ -65,7 +65,7 @@ function formatNumber(value) {
 function formatPercent(value, decimals = 0) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
-    return `0${decimals > 0 ? '.0' : ''}%`;
+    return `${decimals > 0 ? '0.0' : '0'}%`;
   }
 
   return `${number.toFixed(decimals)}%`;
@@ -78,6 +78,10 @@ function formatDuration(ms) {
   return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, '0')}s` : `${seconds}s`;
 }
 
+function roundSeconds(ms) {
+  return Math.max(0, Math.round((Number(ms) || 0) / 1000));
+}
+
 function average(values) {
   if (!values.length) {
     return 0;
@@ -87,17 +91,71 @@ function average(values) {
   return total / values.length;
 }
 
+function percentValue(numerator, denominator, decimals = 0) {
+  if (!denominator) {
+    return 0;
+  }
+
+  const value = (Number(numerator) / Number(denominator)) * 100;
+  return Number(value.toFixed(decimals));
+}
+
 function sessionKeyFor(row) {
   return row.session_id || row.visitor_id || `event-${row.id}`;
 }
 
+function normalizeText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function decodeMaybe(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(text);
+  } catch (error) {
+    return text;
+  }
+}
+
 function formatDeviceLabel(value) {
-  const normalized = String(value || 'unknown').trim().toLowerCase();
+  const normalized = normalizeText(value || 'unknown');
 
   if (normalized === 'mobile') return 'Mobile';
   if (normalized === 'tablet') return 'Tablet';
   if (normalized === 'desktop') return 'Desktop';
   return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Unknown';
+}
+
+function safeDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function pickTimestamp(row, payload) {
+  return safeDate(row.occurred_at || row.received_at || payload.timestamp || payload.occurredAt || new Date().toISOString());
+}
+
+function markFirstAt(record, key, value) {
+  if (!value) {
+    return;
+  }
+
+  if (!record[key] || value.getTime() < record[key].getTime()) {
+    record[key] = value;
+  }
+}
+
+function formatPeople(count) {
+  const number = Number(count) || 0;
+  return `${formatNumber(number)} ${number === 1 ? 'persona' : 'personas'}`;
 }
 
 function recentEventDetail(eventName, data) {
@@ -113,7 +171,7 @@ function recentEventDetail(eventName, data) {
     case 'question_view':
       return `Paso ${data.step || 1} · vista`;
     case 'vsl_play':
-      return `${data.state === 'resume' ? 'Reanudacion' : 'Reproduccion'} · ${data.time_since_gate_ms != null ? `${formatDuration(data.time_since_gate_ms)} desde el filtro` : 'VSL'}`;
+      return `${data.state === 'resume' ? 'Reanudacion' : 'Play'} · ${data.time_since_gate_ms != null ? `${formatDuration(data.time_since_gate_ms)} desde landing` : 'Video'}`;
     case 'vsl_pause':
       return `Pausa · ${formatDuration(data.watched_ms_total)}`;
     case 'vsl_end':
@@ -121,7 +179,7 @@ function recentEventDetail(eventName, data) {
     case 'cta_click':
       return `${data.placement || 'hero'} · ${data.label || 'CTA'}`;
     case 'offer_open':
-      return data.section_label || 'Bloque abierto';
+      return data.section_label || 'Ver mas';
     case 'offer_close':
       return data.section_label || 'Bloque cerrado';
     case 'section_view':
@@ -137,36 +195,310 @@ function recentEventDetail(eventName, data) {
   }
 }
 
+function createTimeline(sessionId) {
+  return {
+    sessionId,
+    firstAt: null,
+    baseAt: null,
+    pageViewAt: null,
+    gateViewAt: null,
+    question1ViewAt: null,
+    question1AnswerAt: null,
+    question2ViewAt: null,
+    question2AnswerAt: null,
+    landingAt: null,
+    vslPlayAt: null,
+    offerOpenAt: null,
+    socialViewAt: null,
+    ctaClickAt: null,
+    gateExitAt: null,
+    pageExitAt: null,
+    vslWatchMs: 0,
+    pageTotalMs: 0,
+    country: null,
+    city: null,
+    device: null,
+  };
+}
+
+function firstExistingAt(session, keys) {
+  for (const key of keys) {
+    if (session[key]) {
+      return session[key];
+    }
+  }
+
+  return null;
+}
+
+function averageTimeBetween(sessions, currentKey, referenceKeys) {
+  const values = [];
+
+  for (const session of sessions) {
+    const current = session[currentKey];
+    const reference = firstExistingAt(session, referenceKeys);
+
+    if (!current || !reference) {
+      continue;
+    }
+
+    const diff = current.getTime() - reference.getTime();
+    if (diff >= 0) {
+      values.push(diff);
+    }
+  }
+
+  return average(values);
+}
+
+function buildQuestionRows(questionStats, baseCount) {
+  return [...questionStats.values()]
+    .sort((a, b) => Number(a.step) - Number(b.step))
+    .map((item) => {
+      const answers = item.answers || 0;
+      const yesPercentOfAnswers = percentValue(item.yes, Math.max(answers, 1), 0);
+      const noPercentOfAnswers = percentValue(item.no, Math.max(answers, 1), 0);
+      const yesPercentOfBase = percentValue(item.yes, Math.max(baseCount, 1), 0);
+      const avgTimeMs = answers ? item.dwellMs / answers : 0;
+
+      return {
+        id: `question_${item.step}`,
+        label: `Pregunta ${item.step}`,
+        prompt: item.prompt,
+        people: answers,
+        yesPeople: item.yes,
+        noPeople: item.no,
+        yesPercentOfAnswers,
+        yesPercentOfAnswersLabel: formatPercent(yesPercentOfAnswers, 0),
+        noPercentOfAnswers,
+        noPercentOfAnswersLabel: formatPercent(noPercentOfAnswers, 0),
+        yesPercentOfBase,
+        yesPercentOfBaseLabel: formatPercent(yesPercentOfBase, 0),
+        avgTimeMs,
+        avgTimeLabel: formatDuration(avgTimeMs),
+        detail: `${formatNumber(answers)} respuestas`,
+      };
+    });
+}
+
+function buildFlowStep(label, people, baseCount, avgTimeMs, timeBasis, note) {
+  const percentOfBase = label === 'Llegaron a la pregunta 1'
+    ? 100
+    : percentValue(people, Math.max(baseCount, 1), 0);
+
+  return {
+    label,
+    people,
+    peopleLabel: formatPeople(people),
+    percentOfBase,
+    percentLabel: formatPercent(percentOfBase, 0),
+    avgTimeMs: avgTimeMs == null ? null : avgTimeMs,
+    avgTimeSeconds: avgTimeMs == null ? null : roundSeconds(avgTimeMs),
+    avgTimeLabel: avgTimeMs == null ? 'Base' : formatDuration(avgTimeMs),
+    timeBasis: avgTimeMs == null ? 'Base del analisis' : timeBasis,
+    note: note || '',
+  };
+}
+
+function buildStoryLines(flowSteps, videoMetrics) {
+  const lookup = new Map(flowSteps.map((step) => [step.label, step]));
+  const base = lookup.get('Llegaron a la pregunta 1');
+  const question1 = lookup.get('Respondieron la pregunta 1');
+  const question2 = lookup.get('Respondieron la pregunta 2');
+  const landing = lookup.get('Entraron al landing');
+  const video = lookup.get('Reprodujeron el video');
+  const more = lookup.get('Abrieron Ver mas');
+  const social = lookup.get('Vieron la prueba social');
+  const cta = lookup.get('Hicieron click en iniciar pago');
+
+  return [
+    `${base.peopleLabel} llegaron a la pregunta 1. Esta es la base del analisis.`,
+    `${question1.peopleLabel} respondieron la pregunta 1 en ${question1.avgTimeLabel} promedio desde que llegaron.`,
+    `${question2.peopleLabel} respondieron la pregunta 2 en ${question2.avgTimeLabel} promedio despues de responder la pregunta 1.`,
+    `${landing.peopleLabel} entraron al landing. En este embudo, entrar al landing significa terminar las dos preguntas.`,
+    `${video.peopleLabel} reprodujeron el video ${video.avgTimeLabel} despues de entrar al landing.`,
+    `${videoMetrics.avgWatchLabel} es el tiempo promedio que vio el video la gente que dio play.`,
+    `${more.peopleLabel} abrieron Ver mas ${more.avgTimeLabel} despues de entrar al landing.`,
+    `${social.peopleLabel} vieron la prueba social ${social.avgTimeLabel} despues de entrar al landing.`,
+    `${cta.peopleLabel} hicieron click en iniciar pago ${cta.avgTimeLabel} despues de entrar al landing.`,
+  ];
+}
+
+function buildAttentionRows(offerCount, baseCount, avgOfferMs, socialCount, avgSocialMs, ctaCount, avgCtaMs) {
+  return [
+    {
+      label: 'Abrieron Ver mas',
+      people: offerCount,
+      peopleLabel: formatPeople(offerCount),
+      percentOfBase: percentValue(offerCount, Math.max(baseCount, 1), 0),
+      percentLabel: formatPercent(percentValue(offerCount, Math.max(baseCount, 1), 0), 0),
+      avgTimeMs: avgOfferMs,
+      avgTimeSeconds: roundSeconds(avgOfferMs),
+      avgTimeLabel: formatDuration(avgOfferMs),
+      detail: 'despues de entrar al landing',
+    },
+    {
+      label: 'Vieron la prueba social',
+      people: socialCount,
+      peopleLabel: formatPeople(socialCount),
+      percentOfBase: percentValue(socialCount, Math.max(baseCount, 1), 0),
+      percentLabel: formatPercent(percentValue(socialCount, Math.max(baseCount, 1), 0), 0),
+      avgTimeMs: avgSocialMs,
+      avgTimeSeconds: roundSeconds(avgSocialMs),
+      avgTimeLabel: formatDuration(avgSocialMs),
+      detail: 'despues de entrar al landing',
+    },
+    {
+      label: 'Click en iniciar pago',
+      people: ctaCount,
+      peopleLabel: formatPeople(ctaCount),
+      percentOfBase: percentValue(ctaCount, Math.max(baseCount, 1), 0),
+      percentLabel: formatPercent(percentValue(ctaCount, Math.max(baseCount, 1), 0), 0),
+      avgTimeMs: avgCtaMs,
+      avgTimeSeconds: roundSeconds(avgCtaMs),
+      avgTimeLabel: formatDuration(avgCtaMs),
+      detail: 'despues de entrar al landing',
+    },
+  ];
+}
+
 function buildFallbackReport(periodKey) {
   const period = getPeriodConfig(periodKey);
+  const sampleSessions = Number(String(sampleReport.summaryCards?.[0]?.value || '0').replace(/[^0-9]/g, '')) || 0;
+  const sampleFlow = sampleReport.funnel || [];
+  const sampleQuestions = sampleReport.questions || [];
+  const sampleHotspots = sampleReport.hotspots || [];
+
+  const question1Count = Math.round(sampleSessions * ((sampleFlow[1] && sampleFlow[1].value) || 0) / 100);
+  const question2Count = Math.round(sampleSessions * ((sampleFlow[2] && sampleFlow[2].value) || 0) / 100);
+  const landingCount = question2Count;
+  const videoCount = Math.round(sampleSessions * ((sampleFlow[3] && sampleFlow[3].value) || 0) / 100);
+  const ctaCount = Math.round(sampleSessions * ((sampleFlow[4] && sampleFlow[4].value) || 0) / 100);
+  const moreHotspot = sampleHotspots.find((item) => normalizeText(item.label).includes('ver exactamente'));
+  const socialHotspot = sampleHotspots.find((item) => normalizeText(item.label).includes('prueba social'));
+  const moreCount = Math.round(sampleSessions * (Number(moreHotspot?.value) || 0) / 100);
+  const socialCount = Math.round(sampleSessions * (Number(socialHotspot?.value) || 0) / 100);
+  const question1AvgMs = (parseNumber(String(sampleQuestions[0]?.avgTime || '0').replace(/[^0-9.]/g, '')) || 0) * 1000;
+  const question2AvgMs = (parseNumber(String(sampleQuestions[1]?.avgTime || '0').replace(/[^0-9.]/g, '')) || 0) * 1000;
+  const avgPlayMs = 26000;
+  const avgWatchMs = 192000;
+  const avgMoreMs = 118000;
+  const avgSocialMs = 145000;
+  const avgCtaMs = 201000;
+
+  const flowSteps = [
+    buildFlowStep('Llegaron a la pregunta 1', sampleSessions, sampleSessions, null, null, 'Base del analisis'),
+    buildFlowStep('Respondieron la pregunta 1', question1Count, sampleSessions, question1AvgMs, 'desde llegar a la pregunta 1'),
+    buildFlowStep('Respondieron la pregunta 2', question2Count, sampleSessions, question2AvgMs, 'despues de responder la pregunta 1'),
+    buildFlowStep('Entraron al landing', landingCount, sampleSessions, 0, 'al terminar la pregunta 2'),
+    buildFlowStep('Reprodujeron el video', videoCount, sampleSessions, avgPlayMs, 'despues de entrar al landing'),
+    buildFlowStep('Abrieron Ver mas', moreCount, sampleSessions, avgMoreMs, 'despues de entrar al landing'),
+    buildFlowStep('Vieron la prueba social', socialCount, sampleSessions, avgSocialMs, 'despues de entrar al landing'),
+    buildFlowStep('Hicieron click en iniciar pago', ctaCount, sampleSessions, avgCtaMs, 'despues de entrar al landing'),
+  ];
+
+  const videoMetrics = {
+    players: videoCount,
+    playersLabel: formatPeople(videoCount),
+    playRate: percentValue(videoCount, Math.max(sampleSessions, 1), 0),
+    playRateLabel: formatPercent(percentValue(videoCount, Math.max(sampleSessions, 1), 0), 0),
+    avgTimeToPlayMs: avgPlayMs,
+    avgTimeToPlaySeconds: roundSeconds(avgPlayMs),
+    avgTimeToPlayLabel: formatDuration(avgPlayMs),
+    avgWatchMs,
+    avgWatchSeconds: roundSeconds(avgWatchMs),
+    avgWatchLabel: formatDuration(avgWatchMs),
+  };
+
   return {
-    ...sampleReport,
     source: 'sample',
     period: period.key,
     periodLabel: period.label,
-    window: period.since ? { since: period.since.toISOString(), until: period.now.toISOString() } : { allTime: true },
+    window: period.since
+      ? { since: period.since.toISOString(), until: period.now.toISOString() }
+      : { allTime: true },
+    updatedAt: period.now.toISOString(),
     totals: {
       events: sampleReport.recentEvents ? sampleReport.recentEvents.length : 0,
-      sessions: sampleReport.summaryCards ? Number(String(sampleReport.summaryCards[0].value).replace(/[^0-9]/g, '')) || 0 : 0,
+      sessions: sampleSessions,
+      pageViews: sampleSessions,
     },
+    summaryCards: [
+      { label: 'Llegaron a la pregunta 1', value: formatNumber(sampleSessions), note: 'Base del periodo' },
+      { label: 'Entraron al landing', value: formatNumber(landingCount), note: `${formatPercent(percentValue(landingCount, Math.max(sampleSessions, 1), 0), 0)} de la base` },
+      { label: 'Dieron play al video', value: formatNumber(videoCount), note: `${videoMetrics.playRateLabel} de la base` },
+      { label: 'Abrieron Ver mas', value: formatNumber(moreCount), note: `${formatPercent(percentValue(moreCount, Math.max(sampleSessions, 1), 0), 0)} de la base` },
+      { label: 'Click en iniciar pago', value: formatNumber(ctaCount), note: `${formatPercent(percentValue(ctaCount, Math.max(sampleSessions, 1), 0), 0)} de la base` },
+      { label: 'Tiempo promedio viendo video', value: videoMetrics.avgWatchLabel, note: `${formatNumber(videoCount)} personas dieron play` },
+    ],
+    flowSteps,
+    storyLines: buildStoryLines(flowSteps, videoMetrics),
+    videoMetrics,
+    questions: sampleQuestions.map((item, index) => {
+      const people = index === 0 ? question1Count : question2Count;
+      const yesPercentOfAnswers = Number(item.yes) || 0;
+      const noPercentOfAnswers = Number(item.no) || 0;
+      const yesPeople = Math.round(people * yesPercentOfAnswers / 100);
+      const noPeople = Math.round(people * noPercentOfAnswers / 100);
+      const avgTimeMs = (parseNumber(String(item.avgTime || '0').replace(/[^0-9.]/g, '')) || 0) * 1000;
+
+      return {
+        id: `question_${index + 1}`,
+        label: `Pregunta ${index + 1}`,
+        prompt: item.prompt || '',
+        people,
+        yesPeople,
+        noPeople,
+        yesPercentOfAnswers,
+        yesPercentOfAnswersLabel: formatPercent(yesPercentOfAnswers, 0),
+        noPercentOfAnswers,
+        noPercentOfAnswersLabel: formatPercent(noPercentOfAnswers, 0),
+        yesPercentOfBase: percentValue(yesPeople, Math.max(sampleSessions, 1), 0),
+        yesPercentOfBaseLabel: formatPercent(percentValue(yesPeople, Math.max(sampleSessions, 1), 0), 0),
+        avgTimeMs,
+        avgTimeLabel: formatDuration(avgTimeMs),
+        detail: `${formatNumber(people)} respuestas`,
+      };
+    }),
+    attention: buildAttentionRows(moreCount, sampleSessions, avgMoreMs, socialCount, avgSocialMs, ctaCount, avgCtaMs),
+    hotspots: (sampleHotspots || []).map((item) => ({
+      label: item.label,
+      people: Math.round(sampleSessions * (Number(item.value) || 0) / 100),
+      peopleLabel: formatPeople(Math.round(sampleSessions * (Number(item.value) || 0) / 100)),
+      value: Math.round(sampleSessions * (Number(item.value) || 0) / 100),
+      detail: `${item.value}% de la base en la muestra`,
+    })),
+    devices: (sampleReport.devices || []).map((item) => {
+      const people = Math.round(sampleSessions * (Number(item.value) || 0) / 100);
+      return {
+        label: item.label,
+        people,
+        peopleLabel: formatPeople(people),
+        percentOfBase: Number(item.value) || 0,
+        percentLabel: formatPercent(Number(item.value) || 0, 0),
+        detail: `${formatNumber(people)} personas`,
+      };
+    }),
+    geo: (sampleReport.geo || []).map((item) => {
+      const people = Number(String(item.value || '0').replace(/[^0-9]/g, '')) || 0;
+      return {
+        label: item.label,
+        sub: item.sub || '',
+        people,
+        peopleLabel: formatPeople(people),
+        percentOfBase: percentValue(people, Math.max(sampleSessions, 1), 0),
+        percentLabel: formatPercent(percentValue(people, Math.max(sampleSessions, 1), 0), 0),
+        detail: `${formatNumber(people)} personas`,
+      };
+    }),
+    recentEvents: sampleReport.recentEvents || [],
+    collectorEndpoint: '/api/collect',
   };
 }
 
 function buildReport(rows, periodKey) {
   const period = getPeriodConfig(periodKey);
-  const sessions = new Set();
-  const entrySessions = new Set();
-  const pageViewSessions = new Set();
-  const gateExitSessions = new Set();
-  const ctaSessions = new Set();
-  const vslSessions = new Set();
-  const questionOneSessions = new Set();
-  const questionTwoSessions = new Set();
-
-  const pageTimes = [];
-  const timeToPlay = [];
-  const vslWatchBySession = new Map();
-
+  const sessions = new Map();
   const questionStats = new Map();
   const hotspotStats = new Map();
   const geoStats = new Map();
@@ -179,54 +511,44 @@ function buildReport(rows, periodKey) {
     const payload = row.payload || {};
     const data = payload.data || {};
     const eventName = row.event_name || payload.event || payload.eventType || 'unknown';
-    const session = sessionKeyFor(row);
+    const sessionId = sessionKeyFor(row);
+    const at = pickTimestamp(row, payload);
 
-    sessions.add(session);
+    const timeline = sessions.get(sessionId) || createTimeline(sessionId);
+    sessions.set(sessionId, timeline);
+
+    markFirstAt(timeline, 'firstAt', at);
 
     if (ENTRY_EVENTS.has(eventName)) {
-      entrySessions.add(session);
+      markFirstAt(timeline, 'baseAt', at);
     }
+
+    const country = decodeMaybe(row.country || data.country || 'Desconocido') || 'Desconocido';
+    const city = decodeMaybe(row.city || data.city || 'Sin ciudad') || 'Sin ciudad';
+    const device = formatDeviceLabel(row.device_type || data.device_type || 'unknown');
+
+    timeline.country = timeline.country || country;
+    timeline.city = timeline.city || city;
+    timeline.device = timeline.device || device;
+
+    const countryStat = geoStats.get(country) || { label: country, sessions: new Set(), cities: new Map() };
+    countryStat.sessions.add(sessionId);
+    countryStat.cities.set(city, (countryStat.cities.get(city) || 0) + 1);
+    geoStats.set(country, countryStat);
+
+    const deviceStat = deviceStats.get(device) || { label: device, sessions: new Set() };
+    deviceStat.sessions.add(sessionId);
+    deviceStats.set(device, deviceStat);
 
     if (eventName === 'page_view') {
-      pageViewSessions.add(session);
+      markFirstAt(timeline, 'pageViewAt', at);
     }
 
-    if (eventName === 'gate_exit') {
-      gateExitSessions.add(session);
+    if (eventName === 'gate_view') {
+      markFirstAt(timeline, 'gateViewAt', at);
     }
 
-    if (eventName === 'cta_click') {
-      ctaSessions.add(session);
-      ctaClicks += 1;
-    }
-
-    if (eventName === 'vsl_play') {
-      vslSessions.add(session);
-      const timeSinceGate = parseNumber(data.time_since_gate_ms);
-      if (timeSinceGate != null) {
-        timeToPlay.push(timeSinceGate);
-      }
-      const watch = parseNumber(data.watched_ms_total);
-      if (watch != null) {
-        vslWatchBySession.set(session, Math.max(vslWatchBySession.get(session) || 0, watch));
-      }
-    }
-
-    if (eventName === 'vsl_pause' || eventName === 'vsl_end') {
-      const watch = parseNumber(data.watched_ms_total);
-      if (watch != null) {
-        vslWatchBySession.set(session, Math.max(vslWatchBySession.get(session) || 0, watch));
-      }
-    }
-
-    if (eventName === 'page_exit') {
-      const pageTotal = parseNumber(data.page_total_ms);
-      if (pageTotal != null) {
-        pageTimes.push(pageTotal);
-      }
-    }
-
-    if (eventName === 'question_answer' || eventName === 'question_view') {
+    if (eventName === 'question_view' || eventName === 'question_answer') {
       const step = String(data.step || '1');
       const stat = questionStats.get(step) || {
         step,
@@ -240,21 +562,26 @@ function buildReport(rows, periodKey) {
 
       if (eventName === 'question_view') {
         stat.views += 1;
+        if (step === '1') {
+          markFirstAt(timeline, 'question1ViewAt', at);
+        } else if (step === '2') {
+          markFirstAt(timeline, 'question2ViewAt', at);
+        }
       }
 
       if (eventName === 'question_answer') {
-        const answer = String(data.answer || '').trim().toLowerCase();
         stat.answers += 1;
-        if (answer === 'yes') {
-          stat.yes += 1;
-        } else {
-          stat.no += 1;
+        if (step === '1') {
+          markFirstAt(timeline, 'question1AnswerAt', at);
+        } else if (step === '2') {
+          markFirstAt(timeline, 'question2AnswerAt', at);
         }
 
-        if (step === '1') {
-          questionOneSessions.add(session);
-        } else if (step === '2') {
-          questionTwoSessions.add(session);
+        const answer = normalizeText(data.answer || '');
+        if (answer === 'yes') {
+          stat.yes += 1;
+        } else if (answer === 'no') {
+          stat.no += 1;
         }
       }
 
@@ -263,15 +590,44 @@ function buildReport(rows, periodKey) {
       }
 
       const dwell = parseNumber(data.dwell_ms);
-      if (dwell != null) {
+      if (dwell != null && eventName === 'question_answer') {
         stat.dwellMs += dwell;
       }
 
       questionStats.set(step, stat);
     }
 
+    if (eventName === 'landing_view') {
+      markFirstAt(timeline, 'landingAt', at);
+    }
+
+    if (eventName === 'vsl_play') {
+      markFirstAt(timeline, 'vslPlayAt', at);
+      const watch = parseNumber(data.watched_ms_total);
+      if (watch != null) {
+        timeline.vslWatchMs = Math.max(timeline.vslWatchMs, watch);
+      }
+    }
+
+    if (eventName === 'vsl_pause' || eventName === 'vsl_end') {
+      const watch = parseNumber(data.watched_ms_total);
+      if (watch != null) {
+        timeline.vslWatchMs = Math.max(timeline.vslWatchMs, watch);
+      }
+    }
+
+    if (eventName === 'offer_open') {
+      markFirstAt(timeline, 'offerOpenAt', at);
+      const label = data.section_label || data.label || 'Ver mas';
+      const stat = openStats.get(label) || { label, opens: 0, sessions: new Set() };
+      stat.opens += 1;
+      stat.sessions.add(sessionId);
+      openStats.set(label, stat);
+    }
+
     if (eventName === 'section_view' || eventName === 'section_dwell') {
       const label = data.section_label || data.section || 'Sin etiqueta';
+      const normalizedLabel = normalizeText(label);
       const stat = hotspotStats.get(label) || {
         label,
         views: 0,
@@ -279,8 +635,7 @@ function buildReport(rows, periodKey) {
         sessions: new Set(),
       };
 
-      stat.sessions.add(session);
-
+      stat.sessions.add(sessionId);
       if (eventName === 'section_view') {
         stat.views += 1;
       }
@@ -293,133 +648,135 @@ function buildReport(rows, periodKey) {
       }
 
       hotspotStats.set(label, stat);
+
+      if (normalizedLabel.includes('prueba social')) {
+        markFirstAt(timeline, 'socialViewAt', at);
+      }
+
+      if (normalizedLabel.includes('ver mas') || normalizedLabel.includes('ver exactamente')) {
+        markFirstAt(timeline, 'offerOpenAt', at);
+      }
     }
 
-    if (eventName === 'offer_open' || eventName === 'faq_open') {
-      const label = data.section_label || data.label || 'Ver exactamente que recibes al entrar';
-      const stat = openStats.get(label) || {
-        label,
-        opens: 0,
-      };
-
-      stat.opens += 1;
-      openStats.set(label, stat);
+    if (eventName === 'cta_click') {
+      markFirstAt(timeline, 'ctaClickAt', at);
+      ctaClicks += 1;
     }
 
-    const country = String(row.country || data.country || 'Desconocido').trim() || 'Desconocido';
-    const city = String(row.city || data.city || 'Sin ciudad').trim() || 'Sin ciudad';
-    const countryStat = geoStats.get(country) || {
-      label: country,
-      sessions: new Set(),
-      cities: new Map(),
-    };
-    countryStat.sessions.add(session);
-    countryStat.cities.set(city, (countryStat.cities.get(city) || 0) + 1);
-    geoStats.set(country, countryStat);
+    if (eventName === 'gate_exit') {
+      markFirstAt(timeline, 'gateExitAt', at);
+    }
 
-    const device = formatDeviceLabel(row.device_type || data.device_type || 'unknown');
-    const deviceStat = deviceStats.get(device) || {
-      label: device,
-      sessions: new Set(),
-    };
-    deviceStat.sessions.add(session);
-    deviceStats.set(device, deviceStat);
+    if (eventName === 'page_exit') {
+      markFirstAt(timeline, 'pageExitAt', at);
+      const pageTotal = parseNumber(data.page_total_ms);
+      if (pageTotal != null) {
+        timeline.pageTotalMs = Math.max(timeline.pageTotalMs, pageTotal);
+      }
+    }
   }
 
-  const rawPageViewCount = rows.filter((row) => row.event_name === 'page_view').length;
-  const pageViewCount = Math.max(pageViewSessions.size, entrySessions.size, rawPageViewCount);
-  const sessionCount = Math.max(pageViewCount, sessions.size);
-  const baseCount = Math.max(sessionCount, 1);
-  const averageVslWatch = average([...vslWatchBySession.values()]);
-  const abandonment = sessionCount ? (gateExitSessions.size / sessionCount) * 100 : 0;
+  const sessionList = [...sessions.values()].map((timeline) => {
+    if (!timeline.baseAt) {
+      timeline.baseAt = timeline.question1ViewAt || timeline.gateViewAt || timeline.pageViewAt || timeline.firstAt;
+    }
+
+    if (!timeline.question1ViewAt && timeline.baseAt) {
+      timeline.question1ViewAt = timeline.baseAt;
+    }
+
+    if (!timeline.landingAt && timeline.question2AnswerAt) {
+      timeline.landingAt = timeline.question2AnswerAt;
+    }
+
+    return timeline;
+  });
+
+  const baseSessions = sessionList.filter((session) => session.baseAt);
+  const questionOneSessions = baseSessions.filter((session) => session.question1AnswerAt);
+  const questionTwoSessions = baseSessions.filter((session) => session.question2AnswerAt);
+  const landingSessions = baseSessions.filter((session) => session.landingAt);
+  const videoSessions = baseSessions.filter((session) => session.vslPlayAt);
+  const moreSessions = baseSessions.filter((session) => session.offerOpenAt);
+  const socialSessions = baseSessions.filter((session) => session.socialViewAt);
+  const ctaSessions = baseSessions.filter((session) => session.ctaClickAt);
+  const pageExitSessions = baseSessions.filter((session) => session.pageExitAt || session.gateExitAt);
+
+  const baseCount = baseSessions.length;
+  const question1Count = questionOneSessions.length;
+  const question2Count = questionTwoSessions.length;
+  const landingCount = landingSessions.length;
+  const videoCount = videoSessions.length;
+  const moreCount = moreSessions.length;
+  const socialCount = socialSessions.length;
+  const ctaCount = ctaSessions.length;
+
+  const pageTimeAverage = average(sessionList.map((session) => session.pageTotalMs).filter((value) => value > 0));
+  const questionRows = buildQuestionRows(questionStats, baseCount);
+  const question1Average = questionRows[0] ? questionRows[0].avgTimeMs : 0;
+  const question2Average = questionRows[1] ? questionRows[1].avgTimeMs : 0;
+  const averagePlayFromLanding = averageTimeBetween(videoSessions, 'vslPlayAt', ['landingAt']);
+  const averageMoreFromLanding = averageTimeBetween(moreSessions, 'offerOpenAt', ['landingAt']);
+  const averageSocialFromLanding = averageTimeBetween(socialSessions, 'socialViewAt', ['landingAt']);
+  const averageCtaFromLanding = averageTimeBetween(ctaSessions, 'ctaClickAt', ['landingAt']);
+  const averageVslWatch = average(videoSessions.map((session) => session.vslWatchMs).filter((value) => value > 0));
+
+  const flowSteps = [
+    buildFlowStep('Llegaron a la pregunta 1', baseCount, baseCount, null, null, 'Base del analisis'),
+    buildFlowStep('Respondieron la pregunta 1', question1Count, baseCount, question1Average, 'desde llegar a la pregunta 1'),
+    buildFlowStep('Respondieron la pregunta 2', question2Count, baseCount, question2Average, 'despues de responder la pregunta 1'),
+    buildFlowStep('Entraron al landing', landingCount, baseCount, 0, 'al terminar la pregunta 2'),
+    buildFlowStep('Reprodujeron el video', videoCount, baseCount, averagePlayFromLanding, 'despues de entrar al landing'),
+    buildFlowStep('Abrieron Ver mas', moreCount, baseCount, averageMoreFromLanding, 'despues de entrar al landing'),
+    buildFlowStep('Vieron la prueba social', socialCount, baseCount, averageSocialFromLanding, 'despues de entrar al landing'),
+    buildFlowStep('Hicieron click en iniciar pago', ctaCount, baseCount, averageCtaFromLanding, 'despues de entrar al landing'),
+  ];
+
+  const videoMetrics = {
+    players: videoCount,
+    playersLabel: formatPeople(videoCount),
+    playRate: percentValue(videoCount, Math.max(baseCount, 1), 0),
+    playRateLabel: formatPercent(percentValue(videoCount, Math.max(baseCount, 1), 0), 0),
+    avgTimeToPlayMs: averagePlayFromLanding,
+    avgTimeToPlaySeconds: roundSeconds(averagePlayFromLanding),
+    avgTimeToPlayLabel: formatDuration(averagePlayFromLanding),
+    avgWatchMs: averageVslWatch,
+    avgWatchSeconds: roundSeconds(averageVslWatch),
+    avgWatchLabel: formatDuration(averageVslWatch),
+  };
 
   const summaryCards = [
-    {
-      label: 'Sesiones',
-      value: formatNumber(sessionCount),
-      delta: period.label,
-    },
-    {
-      label: 'Tiempo medio en pagina',
-      value: formatDuration(average(pageTimes)),
-      delta: `${pageTimes.length} salidas`,
-    },
-    {
-      label: 'Tiempo hasta play',
-      value: formatDuration(average(timeToPlay)),
-      delta: `${timeToPlay.length} plays`,
-    },
-    {
-      label: 'Tiempo en VSL',
-      value: formatDuration(averageVslWatch),
-      delta: `${vslWatchBySession.size} sesiones`,
-    },
-    {
-      label: 'Clicks al pago',
-      value: formatNumber(ctaClicks),
-      delta: `${ctaSessions.size} sesiones`,
-    },
-    {
-      label: 'Abandono',
-      value: formatPercent(abandonment, 1),
-      delta: `${gateExitSessions.size} salidas`,
-    },
+    { label: 'Llegaron a la pregunta 1', value: formatNumber(baseCount), note: 'Base del periodo' },
+    { label: 'Entraron al landing', value: formatNumber(landingCount), note: `${formatPercent(percentValue(landingCount, Math.max(baseCount, 1), 0), 0)} de la base` },
+    { label: 'Dieron play al video', value: formatNumber(videoCount), note: `${videoMetrics.playRateLabel} de la base` },
+    { label: 'Abrieron Ver mas', value: formatNumber(moreCount), note: `${formatPercent(percentValue(moreCount, Math.max(baseCount, 1), 0), 0)} de la base` },
+    { label: 'Click en iniciar pago', value: formatNumber(ctaCount), note: `${formatPercent(percentValue(ctaCount, Math.max(baseCount, 1), 0), 0)} de la base` },
+    { label: 'Tiempo promedio viendo video', value: videoMetrics.avgWatchLabel, note: `${formatNumber(videoCount)} personas dieron play` },
   ];
-
-  const funnel = [
-    {
-      label: 'Pagina vista',
-      value: 100,
-      detail: `${formatNumber(pageViewCount)} sesiones`,
-    },
-    {
-      label: 'Pregunta 1 respondida',
-      value: Math.round((questionOneSessions.size / baseCount) * 100),
-      detail: `${formatNumber(questionOneSessions.size)} sesiones`,
-    },
-    {
-      label: 'Pregunta 2 respondida',
-      value: Math.round((questionTwoSessions.size / baseCount) * 100),
-      detail: `${formatNumber(questionTwoSessions.size)} sesiones`,
-    },
-    {
-      label: 'VSL reproducido',
-      value: Math.round((vslSessions.size / baseCount) * 100),
-      detail: `${formatNumber(vslSessions.size)} sesiones`,
-    },
-    {
-      label: 'CTA al pago',
-      value: Math.round((ctaSessions.size / baseCount) * 100),
-      detail: `${formatNumber(ctaSessions.size)} sesiones`,
-    },
-  ];
-
-  const questions = [...questionStats.values()]
-    .sort((a, b) => Number(a.step) - Number(b.step))
-    .map((item) => {
-      const answers = item.answers || 0;
-      const yesPercent = answers ? Math.round((item.yes / answers) * 100) : 0;
-      const noPercent = answers ? Math.round((item.no / answers) * 100) : 0;
-
-      return {
-        label: `Paso ${item.step}`,
-        prompt: item.prompt,
-        yes: yesPercent,
-        no: noPercent,
-        avgTime: formatDuration(answers ? item.dwellMs / answers : 0),
-        exitAfter: formatPercent(noPercent, 0),
-        detail: `${formatNumber(answers)} respuestas`,
-      };
-    });
 
   const hotspots = [...hotspotStats.values()]
     .map((item) => ({
       label: item.label,
-      value: item.dwellMs + item.views * 5000,
-      detail: `${item.views} vistas · ${formatDuration(item.dwellMs)}`,
+      people: item.sessions.size,
+      peopleLabel: formatPeople(item.sessions.size),
+      value: item.sessions.size,
+      detail: `${formatNumber(item.sessions.size)} personas · ${formatDuration(item.dwellMs)} acumulados`,
+      avgTimeLabel: item.sessions.size ? formatDuration(item.dwellMs / item.sessions.size) : '0s',
     }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => b.people - a.people)
     .slice(0, 6);
+
+  const devices = [...deviceStats.values()]
+    .map((item) => ({
+      label: item.label,
+      people: item.sessions.size,
+      peopleLabel: formatPeople(item.sessions.size),
+      percentOfBase: percentValue(item.sessions.size, Math.max(baseCount, 1), 0),
+      percentLabel: formatPercent(percentValue(item.sessions.size, Math.max(baseCount, 1), 0), 0),
+      detail: `${formatNumber(item.sessions.size)} personas`,
+    }))
+    .sort((a, b) => b.people - a.people)
+    .slice(0, 4);
 
   const geo = [...geoStats.values()]
     .map((item) => ({
@@ -429,49 +786,40 @@ function buildReport(rows, periodKey) {
         .slice(0, 2)
         .map(([city, count]) => `${city} (${count})`)
         .join(' · ') || 'Sin ciudad',
-      value: `${formatNumber(item.sessions.size)} sesiones`,
-      sessions: item.sessions.size,
+      people: item.sessions.size,
+      peopleLabel: formatPeople(item.sessions.size),
+      percentOfBase: percentValue(item.sessions.size, Math.max(baseCount, 1), 0),
+      percentLabel: formatPercent(percentValue(item.sessions.size, Math.max(baseCount, 1), 0), 0),
+      detail: `${formatNumber(item.sessions.size)} personas`,
     }))
-    .sort((a, b) => b.sessions - a.sessions)
-    .slice(0, 3)
-    .map(({ sessions, ...item }) => item);
+    .sort((a, b) => b.people - a.people)
+    .slice(0, 4);
 
-  const devices = [...deviceStats.values()]
-    .map((item) => ({
-      label: item.label,
-      value: `${Math.round((item.sessions.size / Math.max(sessions.size || 1, 1)) * 100)}%`,
-      detail: `${formatNumber(item.sessions.size)} sesiones`,
-      sessions: item.sessions.size,
-    }))
-    .sort((a, b) => b.sessions - a.sessions)
-    .slice(0, 4)
-    .map(({ sessions, ...item }) => item);
-
-  const faq = [...openStats.values()]
-    .sort((a, b) => b.opens - a.opens)
-    .slice(0, 3)
-    .map((item) => ({
-      label: item.label,
-      opens: item.opens,
-      detail: 'Aperturas',
-    }));
+  const attention = buildAttentionRows(
+    moreCount,
+    baseCount,
+    averageMoreFromLanding,
+    socialCount,
+    averageSocialFromLanding,
+    ctaCount,
+    averageCtaFromLanding,
+  );
 
   const recentEvents = rows
-    .slice(-10)
+    .slice(-12)
     .reverse()
     .map((row) => {
       const payload = row.payload || {};
       const data = payload.data || {};
       const eventName = row.event_name || payload.event || payload.eventType || 'unknown';
-      const timestamp = row.occurred_at || row.received_at || new Date();
-      const time = new Date(timestamp).toLocaleTimeString('es-CO', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
+      const timestamp = row.occurred_at || row.received_at || new Date().toISOString();
 
       return {
-        time,
+        time: new Date(timestamp).toLocaleTimeString('es-CO', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
         event: eventName,
         detail: recentEventDetail(eventName, data),
       };
@@ -481,27 +829,38 @@ function buildReport(rows, periodKey) {
     source: 'database',
     period: period.key,
     periodLabel: period.label,
-    window: period.since ? {
-      since: period.since.toISOString(),
-      until: period.now.toISOString(),
-    } : {
-      allTime: true,
-    },
+    window: period.since
+      ? { since: period.since.toISOString(), until: period.now.toISOString() }
+      : { allTime: true },
     updatedAt: new Date().toISOString(),
     totals: {
       events: rows.length,
-      sessions: sessionCount,
-      pageViews: pageViewCount,
+      sessions: baseCount,
+      pageViews: baseCount,
+      exits: pageExitSessions.length,
+      ctaClicks,
     },
     summaryCards,
-    funnel,
+    flowSteps,
+    storyLines: buildStoryLines(flowSteps, videoMetrics),
+    videoMetrics,
+    questions: questionRows,
+    attention,
     hotspots,
-    questions,
     devices,
     geo,
-    faq,
     recentEvents,
     collectorEndpoint: '/api/collect',
+    notes: {
+      base: 'La base del periodo siempre es la cantidad de personas que llegaron a la pregunta 1.',
+      landing: 'Entrar al landing significa haber terminado las 2 preguntas.',
+    },
+    averages: {
+      pageTimeLabel: formatDuration(pageTimeAverage),
+      pageTimeMs: pageTimeAverage,
+      playTimeLabel: videoMetrics.avgTimeToPlayLabel,
+      watchTimeLabel: videoMetrics.avgWatchLabel,
+    },
   };
 }
 
