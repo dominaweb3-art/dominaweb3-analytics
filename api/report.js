@@ -12,12 +12,20 @@ const headers = {
 };
 
 const PERIODS = {
-  'realtime': { label: 'Tiempo real', windowMinutes: 15 },
-  'daily': { label: 'Últimas 24 horas', windowHours: 24 },
-  'weekly': { label: 'Últimos 7 días', windowDays: 7 },
-  'monthly': { label: 'Últimos 30 días', windowDays: 30 },
+  realtime: { label: 'Tiempo real', windowMinutes: 15 },
+  daily: { label: 'Ultimas 24 horas', windowHours: 24 },
+  weekly: { label: 'Ultimos 7 dias', windowDays: 7 },
+  monthly: { label: 'Ultimos 30 dias', windowDays: 30 },
   'all-time': { label: 'Todo el tiempo', allTime: true },
 };
+
+const ENTRY_EVENTS = new Set([
+  'page_view',
+  'gate_view',
+  'landing_view',
+  'question_view',
+  'question_answer',
+]);
 
 function normalizePeriod(value) {
   const key = String(value || 'all-time').trim().toLowerCase();
@@ -94,12 +102,18 @@ function formatDeviceLabel(value) {
 
 function recentEventDetail(eventName, data) {
   switch (eventName) {
+    case 'page_view':
+      return 'Pagina vista';
+    case 'gate_view':
+      return 'Filtro visto';
+    case 'landing_view':
+      return 'Landing vista';
     case 'question_answer':
       return `Paso ${data.step || 1} · ${String(data.answer || '').toUpperCase()} · ${formatDuration(data.dwell_ms)}`;
     case 'question_view':
       return `Paso ${data.step || 1} · vista`;
     case 'vsl_play':
-      return `${data.state === 'resume' ? 'Reanudación' : 'Reproducción'} · ${data.time_since_gate_ms != null ? `${formatDuration(data.time_since_gate_ms)} desde el filtro` : 'VSL'}`;
+      return `${data.state === 'resume' ? 'Reanudacion' : 'Reproduccion'} · ${data.time_since_gate_ms != null ? `${formatDuration(data.time_since_gate_ms)} desde el filtro` : 'VSL'}`;
     case 'vsl_pause':
       return `Pausa · ${formatDuration(data.watched_ms_total)}`;
     case 'vsl_end':
@@ -111,17 +125,15 @@ function recentEventDetail(eventName, data) {
     case 'offer_close':
       return data.section_label || 'Bloque cerrado';
     case 'section_view':
-      return `${data.section_label || data.section || 'Sección'} · vista`;
+      return `${data.section_label || data.section || 'Seccion'} · vista`;
     case 'section_dwell':
-      return `${data.section_label || data.section || 'Sección'} · ${formatDuration(data.dwell_ms)}`;
+      return `${data.section_label || data.section || 'Seccion'} · ${formatDuration(data.dwell_ms)}`;
     case 'page_exit':
       return `Salida · ${formatDuration(data.page_total_ms)}`;
     case 'gate_exit':
       return 'Salida del filtro';
-    case 'page_view':
-      return 'Página vista';
     default:
-      return data.label || data.section_label || 'Interacción registrada';
+      return data.label || data.section_label || 'Interaccion registrada';
   }
 }
 
@@ -143,6 +155,7 @@ function buildFallbackReport(periodKey) {
 function buildReport(rows, periodKey) {
   const period = getPeriodConfig(periodKey);
   const sessions = new Set();
+  const entrySessions = new Set();
   const pageViewSessions = new Set();
   const gateExitSessions = new Set();
   const ctaSessions = new Set();
@@ -169,6 +182,10 @@ function buildReport(rows, periodKey) {
     const session = sessionKeyFor(row);
 
     sessions.add(session);
+
+    if (ENTRY_EVENTS.has(eventName)) {
+      entrySessions.add(session);
+    }
 
     if (eventName === 'page_view') {
       pageViewSessions.add(session);
@@ -279,7 +296,7 @@ function buildReport(rows, periodKey) {
     }
 
     if (eventName === 'offer_open' || eventName === 'faq_open') {
-      const label = data.section_label || data.label || 'Ver exactamente qué recibes al entrar';
+      const label = data.section_label || data.label || 'Ver exactamente que recibes al entrar';
       const stat = openStats.get(label) || {
         label,
         opens: 0,
@@ -309,19 +326,21 @@ function buildReport(rows, periodKey) {
     deviceStats.set(device, deviceStat);
   }
 
-  const pageViewCount = pageViewSessions.size || rows.filter((row) => row.event_name === 'page_view').length;
-  const baseCount = Math.max(pageViewCount || sessions.size || 1, 1);
+  const rawPageViewCount = rows.filter((row) => row.event_name === 'page_view').length;
+  const pageViewCount = Math.max(pageViewSessions.size, entrySessions.size, rawPageViewCount);
+  const sessionCount = Math.max(pageViewCount, sessions.size);
+  const baseCount = Math.max(sessionCount, 1);
   const averageVslWatch = average([...vslWatchBySession.values()]);
-  const abandonment = pageViewCount ? (gateExitSessions.size / pageViewCount) * 100 : 0;
+  const abandonment = sessionCount ? (gateExitSessions.size / sessionCount) * 100 : 0;
 
   const summaryCards = [
     {
       label: 'Sesiones',
-      value: formatNumber(pageViewCount || sessions.size),
+      value: formatNumber(sessionCount),
       delta: period.label,
     },
     {
-      label: 'Tiempo medio en página',
+      label: 'Tiempo medio en pagina',
       value: formatDuration(average(pageTimes)),
       delta: `${pageTimes.length} salidas`,
     },
@@ -349,7 +368,7 @@ function buildReport(rows, periodKey) {
 
   const funnel = [
     {
-      label: 'Página vista',
+      label: 'Pagina vista',
       value: 100,
       detail: `${formatNumber(pageViewCount)} sesiones`,
     },
@@ -471,7 +490,7 @@ function buildReport(rows, periodKey) {
     updatedAt: new Date().toISOString(),
     totals: {
       events: rows.length,
-      sessions: pageViewCount || sessions.size,
+      sessions: sessionCount,
       pageViews: pageViewCount,
     },
     summaryCards,
