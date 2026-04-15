@@ -1,0 +1,69 @@
+{
+  "project": "dominaweb3-analytics",
+  "source": "sample",
+  "updatedAt": "2026-04-15T18:40:00Z",
+  "summaryCards": [
+    { "label": "Sesiones", "value": "1,284", "delta": "+18%" },
+    { "label": "Tiempo medio en página", "value": "4m 08s", "delta": "+9%" },
+    { "label": "Tiempo hasta play", "value": "1m 26s", "delta": "-11%" },
+    { "label": "Tiempo en VSL", "value": "3m 12s", "delta": "+14%" },
+    { "label": "Clicks al pago", "value": "249", "delta": "+15%" },
+    { "label": "Abandono", "value": "31.4%", "delta": "-4%" }
+  ],
+  "funnel": [
+    { "label": "Página vista", "value": 100 },
+    { "label": "Pregunta 1 respondida", "value": 89 },
+    { "label": "Pregunta 2 respondida", "value": 73 },
+    { "label": "VSL reproducido", "value": 55 },
+    { "label": "CTA al pago", "value": 19 }
+  ],
+  "hotspots": [
+    { "label": "Hero + VSL", "value": 38 },
+    { "label": "Pregunta 1", "value": 24 },
+    { "label": "Pregunta 2", "value": 17 },
+    { "label": "Ver exactamente qué recibes", "value": 11 },
+    { "label": "Prueba social", "value": 6 },
+    { "label": "FAQ", "value": 4 }
+  ],
+  "questions": [
+    {
+      "step": "Paso 1",
+      "prompt": "¿Quieres aprender una alternativa clara para mover tu dinero con más libertad, control y tranquilidad?",
+      "yes": 82,
+      "no": 18,
+      "avgTime": "8.4s",
+      "exitAfter": "11%"
+    },
+    {
+      "step": "Paso 2",
+      "prompt": "Hoy puedes acceder por US$37 y tienes 7 días de garantía para probarlo con tranquilidad.",
+      "yes": 74,
+      "no": 26,
+      "avgTime": "6.1s",
+      "exitAfter": "9%"
+    }
+  ],
+  "devices": [
+    { "label": "Mobile", "value": 64 },
+    { "label": "Desktop", "value": 29 },
+    { "label": "Tablet", "value": 7 }
+  ],
+  "geo": [
+    { "label": "Colombia", "sub": "Bogotá · Medellín · Cali", "value": "412 sesiones" },
+    { "label": "México", "sub": "CDMX · Guadalajara · Monterrey", "value": "286 sesiones" },
+    { "label": "Perú", "sub": "Lima · Arequipa", "value": "161 sesiones" }
+  ],
+  "faq": [
+    { "label": "¿Qué incluye tu acceso?", "opens": 186 },
+    { "label": "¿Cómo accedo?", "opens": 132 },
+    { "label": "¿Hay garantía?", "opens": 118 }
+  ],
+  "recentEvents": [
+    { "time": "13:01:22", "event": "question_1_yes", "detail": "Respondida en 8.4s" },
+    { "time": "13:01:49", "event": "question_2_yes", "detail": "Respondida en 6.1s" },
+    { "time": "13:02:14", "event": "vsl_play", "detail": "Reproducción iniciada" },
+    { "time": "13:05:05", "event": "faq_open", "detail": "¿Qué incluye tu acceso?" },
+    { "time": "13:06:20", "event": "cta_click", "detail": "Sí, quiero empezar hoy" }
+  ],
+  "collectorEndpoint": "/api/collect"
+}
