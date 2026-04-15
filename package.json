@@ -1,0 +1,13 @@
+{
+  "name": "dominaweb3-analytics",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Analytics collector and dashboard for DominaWeb3.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.0.0"
+  }
+}
