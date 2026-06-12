@@ -3,67 +3,149 @@
   "source": "sample",
   "updatedAt": "2026-04-15T18:40:00Z",
   "summaryCards": [
-    { "label": "Sesiones", "value": "1,284", "delta": "+18%" },
-    { "label": "Tiempo medio en página", "value": "4m 08s", "delta": "+9%" },
-    { "label": "Tiempo hasta play", "value": "1m 26s", "delta": "-11%" },
-    { "label": "Tiempo en VSL", "value": "3m 12s", "delta": "+14%" },
-    { "label": "Clicks al pago", "value": "249", "delta": "+15%" },
-    { "label": "Abandono", "value": "31.4%", "delta": "-4%" }
-  ],
-  "funnel": [
-    { "label": "Página vista", "value": 100 },
-    { "label": "Pregunta 1 respondida", "value": 89 },
-    { "label": "Pregunta 2 respondida", "value": 73 },
-    { "label": "VSL reproducido", "value": 55 },
-    { "label": "CTA al pago", "value": 19 }
-  ],
-  "hotspots": [
-    { "label": "Hero + VSL", "value": 38 },
-    { "label": "Pregunta 1", "value": 24 },
-    { "label": "Pregunta 2", "value": 17 },
-    { "label": "Ver exactamente qué recibes", "value": 11 },
-    { "label": "Prueba social", "value": 6 },
-    { "label": "FAQ", "value": 4 }
-  ],
-  "questions": [
     {
-      "step": "Paso 1",
-      "prompt": "¿Quieres aprender una alternativa clara para mover tu dinero con más libertad, control y tranquilidad?",
-      "yes": 82,
-      "no": 18,
-      "avgTime": "8.4s",
-      "exitAfter": "11%"
+      "label": "Inicios de pago",
+      "value": "249",
+      "note": "Sesiones con intención"
     },
     {
-      "step": "Paso 2",
-      "prompt": "Hoy puedes acceder por US$37 y tienes 7 días de garantía para probarlo con tranquilidad.",
-      "yes": 74,
-      "no": 26,
-      "avgTime": "6.1s",
-      "exitAfter": "9%"
+      "label": "Compras",
+      "value": "68",
+      "note": "27% de los inicios"
+    },
+    {
+      "label": "Días con inicio de pago",
+      "value": "21",
+      "note": "Solo días con movimiento"
+    },
+    {
+      "label": "Contenido visto",
+      "value": "79%",
+      "note": "197 de 249 inicios"
+    },
+    {
+      "label": "Tiempo medio viendo contenido",
+      "value": "3m 12s",
+      "note": "Solo sesiones con contenido"
     }
   ],
-  "devices": [
-    { "label": "Mobile", "value": 64 },
-    { "label": "Desktop", "value": 29 },
-    { "label": "Tablet", "value": 7 }
+  "dailyRows": [
+    {
+      "label": "15 abr",
+      "isoDate": "2026-04-15",
+      "paymentStarts": 40,
+      "purchases": 11,
+      "contentViewed": 31,
+      "contentNotViewed": 9,
+      "avgContentWatchMs": 206000,
+      "avgContentWatchLabel": "3m 26s",
+      "viewedRateLabel": "78%"
+    },
+    {
+      "label": "14 abr",
+      "isoDate": "2026-04-14",
+      "paymentStarts": 35,
+      "purchases": 10,
+      "contentViewed": 29,
+      "contentNotViewed": 6,
+      "avgContentWatchMs": 198000,
+      "avgContentWatchLabel": "3m 18s",
+      "viewedRateLabel": "83%"
+    },
+    {
+      "label": "13 abr",
+      "isoDate": "2026-04-13",
+      "paymentStarts": 38,
+      "purchases": 9,
+      "contentViewed": 30,
+      "contentNotViewed": 8,
+      "avgContentWatchMs": 203000,
+      "avgContentWatchLabel": "3m 23s",
+      "viewedRateLabel": "79%"
+    },
+    {
+      "label": "12 abr",
+      "isoDate": "2026-04-12",
+      "paymentStarts": 42,
+      "purchases": 12,
+      "contentViewed": 33,
+      "contentNotViewed": 9,
+      "avgContentWatchMs": 195000,
+      "avgContentWatchLabel": "3m 15s",
+      "viewedRateLabel": "79%"
+    },
+    {
+      "label": "11 abr",
+      "isoDate": "2026-04-11",
+      "paymentStarts": 31,
+      "purchases": 8,
+      "contentViewed": 25,
+      "contentNotViewed": 6,
+      "avgContentWatchMs": 188000,
+      "avgContentWatchLabel": "3m 08s",
+      "viewedRateLabel": "81%"
+    },
+    {
+      "label": "10 abr",
+      "isoDate": "2026-04-10",
+      "paymentStarts": 28,
+      "purchases": 7,
+      "contentViewed": 22,
+      "contentNotViewed": 6,
+      "avgContentWatchMs": 191000,
+      "avgContentWatchLabel": "3m 11s",
+      "viewedRateLabel": "79%"
+    },
+    {
+      "label": "09 abr",
+      "isoDate": "2026-04-09",
+      "paymentStarts": 35,
+      "purchases": 11,
+      "contentViewed": 27,
+      "contentNotViewed": 8,
+      "avgContentWatchMs": 185000,
+      "avgContentWatchLabel": "3m 05s",
+      "viewedRateLabel": "77%"
+    }
   ],
-  "geo": [
-    { "label": "Colombia", "sub": "Bogotá · Medellín · Cali", "value": "412 sesiones" },
-    { "label": "México", "sub": "CDMX · Guadalajara · Monterrey", "value": "286 sesiones" },
-    { "label": "Perú", "sub": "Lima · Arequipa", "value": "161 sesiones" }
-  ],
-  "faq": [
-    { "label": "¿Qué incluye tu acceso?", "opens": 186 },
-    { "label": "¿Cómo accedo?", "opens": 132 },
-    { "label": "¿Hay garantía?", "opens": 118 }
-  ],
+  "contentSplit": {
+    "viewed": 197,
+    "notViewed": 52,
+    "viewedRate": 79,
+    "viewedRateLabel": "79%",
+    "avgWatchMs": 192000,
+    "avgWatchLabel": "3m 12s"
+  },
   "recentEvents": [
-    { "time": "13:01:22", "event": "question_1_yes", "detail": "Respondida en 8.4s" },
-    { "time": "13:01:49", "event": "question_2_yes", "detail": "Respondida en 6.1s" },
-    { "time": "13:02:14", "event": "vsl_play", "detail": "Reproducción iniciada" },
-    { "time": "13:05:05", "event": "faq_open", "detail": "¿Qué incluye tu acceso?" },
-    { "time": "13:06:20", "event": "cta_click", "detail": "Sí, quiero empezar hoy" }
+    {
+      "time": "13:06:20",
+      "event": "purchase",
+      "detail": "Compra completada"
+    },
+    {
+      "time": "13:05:02",
+      "event": "payment_start",
+      "detail": "Inició pago desde el CTA principal"
+    },
+    {
+      "time": "13:02:14",
+      "event": "content_view",
+      "detail": "Contenido visto durante 3m 18s"
+    },
+    {
+      "time": "12:58:40",
+      "event": "payment_start",
+      "detail": "Inicio de pago desde mobile"
+    },
+    {
+      "time": "12:55:08",
+      "event": "purchase",
+      "detail": "Compra completada"
+    }
   ],
-  "collectorEndpoint": "/api/collect"
+  "notes": {
+    "base": "La base del periodo son las sesiones que iniciaron pago.",
+    "paymentStart": "Iniciar pago incluye el CTA principal y eventos equivalentes de checkout.",
+    "content": "Contenido visto significa play real o watch time medible."
+  }
 }
