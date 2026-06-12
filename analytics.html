@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Analitica enfocada en inicio de pago, compras y consumo de contenido.">
+  <title>DominaWeb3 Analytics</title>
+  <style>
+    :root {
+      --bg: #07100f;
+      --bg-soft: #0d1513;
+      --panel: rgba(13, 20, 18, 0.74);
+      --panel-strong: rgba(17, 26, 23, 0.9);
+      --line: rgba(255, 255, 255, 0.09);
+      --text: #f4f7f5;
+      --muted: #97a7a1;
+      --accent: #dfbf74;
+      --accent-2: #7bd6ad;
+      --accent-3: #7da6ff;
+      --shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
+      --radius: 26px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(223, 191, 116, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(123, 214, 173, 0.16), transparent 24%),
+        linear-gradient(180deg, #05100e 0%, #091210 34%, #0b1311 100%);
+      font-family: "Manrope", "Inter", "Segoe UI", sans-serif;
+      line-height: 1.45;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    body::before {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 80%);
+    }
+
+    body::after {
+      background:
+        radial-gradient(circle at 20% 0%, rgba(223, 191, 116, 0.08), transparent 20%),
+        radial-gradient(circle at 80% 12%, rgba(123, 214, 173, 0.08), transparent 22%);
+      filter: blur(10px);
+    }
+
+    button, select {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1200px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    h1, h2, p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 10.5ch;
+      font-size: clamp(2.5rem, 5vw, 4.8rem);
+      line-height: 0.92;
+      letter-spacing: -0.05em;
+    }
+
+    .lead {
+      max-width: 64ch;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+
+    .periods {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .period {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .period:hover { transform: translateY(-1px); }
+    .period.active {
+      background: linear-gradient(135deg, rgba(223, 191, 116, 0.18), rgba(123, 214, 173, 0.16));
+      border-color: rgba(223, 191, 116, 0.42);
+      box-shadow: 0 12px 32px rgba(223, 191, 116, 0.08);
+    }
+
+    .status-card,
+    .panel,
+    .metric-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .status-card {
+      border-radius: var(--radius);
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04));
+    }
+
+    .status-kicker,
+    .panel-kicker {
+      display: inline-flex;
+      margin-bottom: 8px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.74rem;
+      font-weight: 800;
+    }
+
+    .status-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.55rem;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .status-card p {
+      margin-top: 10px;
+      color: var(--muted);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .stat-mini {
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--line);
+    }
+
+    .stat-mini span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .stat-mini strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.45rem;
+    }
+
+    .refresh-btn {
+      margin-top: 14px;
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-radius: 16px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .refresh-btn:hover { transform: translateY(-1px); }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .metric-card {
+      border-radius: 22px;
+      padding: 18px;
+    }
+
+    .metric-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .metric-card strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 1.9rem;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .metric-card small {
+      display: block;
+      margin-top: 10px;
+      color: var(--accent-2);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.24fr) minmax(320px, 0.76fr);
+      gap: 18px;
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .panel-head p {
+      margin-top: 8px;
+      color: var(--muted);
+      max-width: 56ch;
+    }
+
+    .panel h2 {
+      font-size: 1.36rem;
+      letter-spacing: -0.03em;
+    }
+
+    .panel-stat {
+      min-width: 122px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--line);
+    }
+
+    .panel-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .panel-stat strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .panel-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .daily-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .day-row {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr) 190px;
+      gap: 14px;
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(2, 8, 7, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .day-meta strong {
+      display: block;
+      font-size: 1.02rem;
+      letter-spacing: -0.02em;
+    }
+
+    .day-meta span,
+    .day-foot span,
+    .day-foot small {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .day-bars {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .track {
+      margin-top: 7px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .fill-start { background: linear-gradient(90deg, var(--accent), #f1d48c); }
+    .fill-buy { background: linear-gradient(90deg, var(--accent-2), #98efc3); }
+
+    .day-foot {
+      display: grid;
+      justify-items: end;
+      align-content: start;
+      gap: 6px;
+      text-align: right;
+    }
+
+    .day-foot strong {
+      font-size: 1.55rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .content-wrap {
+      display: grid;
+      gap: 18px;
+      margin-top: 18px;
+      justify-items: center;
+    }
+
+    .donut-shell {
+      position: relative;
+      width: 240px;
+      aspect-ratio: 1;
+    }
+
+    .donut {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent-2) 0deg var(--angle), rgba(255, 255, 255, 0.08) var(--angle) 360deg);
+      padding: 20px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .donut::after {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(7, 12, 11, 0.96);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    .donut-center {
+      position: absolute;
+      inset: 20px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .donut-center strong {
+      display: block;
+      font-size: 2.1rem;
+      letter-spacing: -0.05em;
+    }
+
+    .donut-center span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      max-width: 11ch;
+      line-height: 1.25;
+    }
+
+    .content-metrics {
+      width: 100%;
+      display: grid;
+      gap: 12px;
+    }
+
+    .content-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .content-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .content-row span {
+      color: var(--muted);
+    }
+
+    .content-row strong {
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+
+    .event-list {
+      margin-top: 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .event-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(2, 8, 7, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 7px 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.74rem;
+      font-weight: 800;
+      background: rgba(223, 191, 116, 0.12);
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .badge.purchase {
+      background: rgba(123, 214, 173, 0.14);
+      color: var(--accent-2);
+    }
+
+    .badge.content {
+      background: rgba(125, 166, 255, 0.14);
+      color: #a9c2ff;
+    }
+
+    .event-row strong {
+      display: block;
+    }
+
+    .event-row small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+    }
+
+    .event-row time {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 200px;
+      border-radius: 20px;
+      border: 1px dashed rgba(255, 255, 255, 0.12);
+      background: rgba(2, 8, 7, 0.32);
+      color: var(--muted);
+      text-align: center;
+      padding: 18px;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      text-align: center;
+    }
+
+    @media (max-width: 1100px) {
+      .hero,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(1200px, calc(100% - 20px));
+      }
+
+      .summary-grid,
+      .status-grid,
+      .event-row,
+      .day-row {
+        grid-template-columns: 1fr;
+      }
+
+      .day-row {
+        gap: 12px;
+      }
+
+      .day-foot,
+      .event-row {
+        justify-items: start;
+        text-align: left;
+      }
+
+      .event-row time {
+        justify-self: start;
+      }
+
+      .donut-shell {
+        width: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">DominaWeb3 Analytics</p>
+        <h1>Pago, compra y contenido. Nada mas.</h1>
+        <p class="lead">Una lectura limpia del embudo: quien inicia pago, quien compra y cuanto contenido consume antes de avanzar.</p>
+        <div class="periods" id="periods"></div>
+      </div>
+
+      <aside class="status-card">
+        <span class="status-kicker">Periodo activo</span>
+        <strong id="period-label">Cargando</strong>
+        <p id="status-copy">Esperando datos reales o muestra.</p>
+        <div class="status-grid">
+          <div class="stat-mini">
+            <span>Sesiones</span>
+            <strong id="status-sessions">0</strong>
+          </div>
+          <div class="stat-mini">
+            <span>Eventos</span>
+            <strong id="status-events">0</strong>
+          </div>
+        </div>
+        <button class="refresh-btn" id="refresh-btn" type="button">Actualizar</button>
+      </aside>
+    </section>
+
+    <section class="summary-grid" id="summary-grid"></section>
+
+    <section class="main-grid">
+      <article class="panel panel-wide">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">Timing</span>
+            <h2>Inicios de pago por dia</h2>
+            <p>Solo dias con movimiento real. Las compras aparecen en la misma fila para leer intencion vs cierre.</p>
+          </div>
+          <div class="panel-stat">
+            <span>Dias activos</span>
+            <strong id="active-days">0</strong>
+          </div>
+        </div>
+        <p class="panel-note" id="daily-note">Los inicios de pago se ordenan por dia y el tamano de la barra se compara con el mayor dia del periodo.</p>
+        <div class="daily-list" id="daily-list"></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">Contenido</span>
+            <h2>Vieron el contenido</h2>
+            <p>Que porcentaje vio contenido y cuanto tiempo permanecio.</p>
+          </div>
+        </div>
+
+        <div class="content-wrap">
+          <div class="donut-shell">
+            <div class="donut" id="donut"></div>
+            <div class="donut-center">
+              <div>
+                <strong id="content-rate">0%</strong>
+                <span>vieron contenido</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-metrics">
+            <div class="content-row">
+              <span>Vieron contenido</span>
+              <strong id="content-viewed">0</strong>
+            </div>
+            <div class="content-row">
+              <span>No lo vieron</span>
+              <strong id="content-not-viewed">0</strong>
+            </div>
+            <div class="content-row">
+              <span>Tiempo medio</span>
+              <strong id="content-watch">0s</strong>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" style="margin-top:18px;">
+      <div class="panel-head">
+        <div>
+          <span class="panel-kicker">Actividad</span>
+          <h2>Eventos relevantes</h2>
+          <p>Solo inicio de pago, compra y contenido visto.</p>
+        </div>
+      </div>
+      <div class="event-list" id="recent-list"></div>
+    </section>
+
+    <p class="footer-note" id="footer-note">La vista esta optimizada para una lectura rapida del embudo de pago.</p>
+  </main>
+
+  <script>
+    const PERIODS = [
+      { key: 'realtime', label: 'Tiempo real', hint: '15 min' },
+      { key: 'daily', label: 'Diario', hint: '24 h' },
+      { key: 'weekly', label: 'Semanal', hint: '7 dias' },
+      { key: 'monthly', label: 'Mensual', hint: '30 dias' },
+      { key: 'all-time', label: 'Todo el tiempo', hint: 'Historico' },
+    ];
+
+    const state = {
+      period: new URLSearchParams(window.location.search).get('period') || 'all-time',
+      report: null,
+    };
+
+    const els = {
+      periods: document.getElementById('periods'),
+      periodLabel: document.getElementById('period-label'),
+      statusCopy: document.getElementById('status-copy'),
+      statusSessions: document.getElementById('status-sessions'),
+      statusEvents: document.getElementById('status-events'),
+      summaryGrid: document.getElementById('summary-grid'),
+      activeDays: document.getElementById('active-days'),
+      dailyNote: document.getElementById('daily-note'),
+      dailyList: document.getElementById('daily-list'),
+      donut: document.getElementById('donut'),
+      contentRate: document.getElementById('content-rate'),
+      contentViewed: document.getElementById('content-viewed'),
+      contentNotViewed: document.getElementById('content-not-viewed'),
+      contentWatch: document.getElementById('content-watch'),
+      recentList: document.getElementById('recent-list'),
+      refreshBtn: document.getElementById('refresh-btn'),
+      footerNote: document.getElementById('footer-note'),
+    };
+
+    function esc(value = '') {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('es-CO').format(Number(value) || 0);
+    }
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.max(0, Math.round((Number(ms) || 0) / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, '0')}s` : `${seconds}s`;
+    }
+
+    function formatDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '--';
+      return date.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function friendlyEvent(name) {
+      const normalized = String(name || '').toLowerCase();
+      if (normalized === 'payment_start' || normalized === 'checkout_start' || normalized === 'start_payment' || normalized === 'initiate_payment') return 'Inicio de pago';
+      if (normalized === 'purchase' || normalized === 'checkout_complete' || normalized === 'payment_complete' || normalized === 'order_complete' || normalized === 'complete_purchase') return 'Compra';
+      if (normalized === 'content_view' || normalized === 'content_seen' || normalized === 'vsl_play' || normalized === 'vsl_end' || normalized === 'landing_view') return 'Contenido';
+      return normalized.replaceAll('_', ' ');
+    }
+
+    function eventClass(name) {
+      const normalized = String(name || '').toLowerCase();
+      if (normalized.includes('purchase') || normalized.includes('complete')) return 'purchase';
+      if (normalized.includes('content') || normalized.includes('vsl') || normalized.includes('landing')) return 'content';
+      return '';
+    }
+
+    function renderPeriods() {
+      els.periods.innerHTML = PERIODS.map((period) => `
+        <button class="period ${period.key === state.period ? 'active' : ''}" data-period="${period.key}" type="button">
+          ${esc(period.label)} · ${esc(period.hint)}
+        </button>
+      `).join('');
+
+      els.periods.querySelectorAll('[data-period]').forEach((button) => {
+        button.addEventListener('click', () => {
+          state.period = button.dataset.period;
+          const url = new URL(window.location.href);
+          url.searchParams.set('period', state.period);
+          window.history.replaceState({}, '', url);
+          renderPeriods();
+          refresh();
+        });
+      });
+    }
+
+    function buildSummaryFallback(report) {
+      const paymentStarts = Number(report?.totals?.paymentStarts || 0);
+      const purchases = Number(report?.totals?.purchases || 0);
+      const contentViewed = Number(report?.contentSplit?.viewed || 0);
+      const viewedRate = paymentStarts ? Math.round((contentViewed / paymentStarts) * 100) : 0;
+
+      return [
+        { label: 'Inicios de pago', value: formatNumber(paymentStarts), note: 'Sesiones con intencion' },
+        { label: 'Compras', value: formatNumber(purchases), note: paymentStarts ? `${Math.round((purchases / paymentStarts) * 100)}% de los inicios` : 'Sin base' },
+        { label: 'Dias con inicio de pago', value: formatNumber(report?.totals?.daysWithPaymentStarts || 0), note: 'Solo dias con movimiento' },
+        { label: 'Contenido visto', value: `${viewedRate}%`, note: paymentStarts ? `${formatNumber(contentViewed)} de ${formatNumber(paymentStarts)} inicios` : 'Sin base' },
+        { label: 'Tiempo medio viendo contenido', value: report?.contentSplit?.avgWatchLabel || '0s', note: paymentStarts ? 'Solo sesiones con contenido' : 'Sin base' },
+      ];
+    }
+
+    function renderSummary(report) {
+      const cards = Array.isArray(report.summaryCards) && report.summaryCards.length ? report.summaryCards : buildSummaryFallback(report);
+      els.summaryGrid.innerHTML = cards.map((card) => `
+        <article class="metric-card">
+          <span>${esc(card.label)}</span>
+          <strong>${esc(card.value)}</strong>
+          <small>${esc(card.note || '')}</small>
+        </article>
+      `).join('');
+    }
+
+    function renderHero(report) {
+      els.periodLabel.textContent = report.periodLabel || '--';
+      els.statusCopy.textContent = `${report.notes?.base || 'Base reducida a pago, compra y contenido.'} · actualizado ${formatDate(report.updatedAt)}`;
+      els.statusSessions.textContent = formatNumber(report.totals?.sessions || 0);
+      els.statusEvents.textContent = formatNumber(report.totals?.events || 0);
+      els.activeDays.textContent = formatNumber(report.totals?.daysWithPaymentStarts || 0);
+      els.dailyNote.textContent = report.notes?.paymentStart || 'Los inicios de pago se ordenan por dia y el tamano de la barra se compara con el mayor dia del periodo.';
+      els.footerNote.textContent = report.notes?.content || 'La vista esta optimizada para una lectura rapida del embudo de pago.';
+    }
+
+    function renderDaily(report) {
+      const rows = Array.isArray(report.dailyRows) ? report.dailyRows : [];
+      if (!rows.length) {
+        els.dailyList.innerHTML = '<div class="empty">No hay dias con inicio de pago en este periodo.</div>';
+        return;
+      }
+
+      const maxStarts = Math.max(...rows.map((row) => Number(row.paymentStarts) || 0), 1);
+      const maxPurchases = Math.max(...rows.map((row) => Number(row.purchases) || 0), 1);
+
+      els.dailyList.innerHTML = rows.map((row) => {
+        const startWidth = Math.max(8, Math.round(((Number(row.paymentStarts) || 0) / maxStarts) * 100));
+        const buyWidth = Math.max(8, Math.round(((Number(row.purchases) || 0) / maxPurchases) * 100));
+        return `
+          <article class="day-row">
+            <div class="day-meta">
+              <strong>${esc(row.label || '--')}</strong>
+              <span>${esc(row.isoDate || '--')}</span>
+            </div>
+            <div class="day-bars">
+              <div>
+                <div class="bar-head">
+                  <span>Inicios de pago</span>
+                  <strong>${formatNumber(row.paymentStarts || 0)}</strong>
+                </div>
+                <div class="track"><div class="fill fill-start" style="width:${startWidth}%"></div></div>
+              </div>
+              <div>
+                <div class="bar-head">
+                  <span>Compras</span>
+                  <strong>${formatNumber(row.purchases || 0)}</strong>
+                </div>
+                <div class="track"><div class="fill fill-buy" style="width:${buyWidth}%"></div></div>
+              </div>
+            </div>
+            <div class="day-foot">
+              <strong>${esc(row.avgContentWatchLabel || '0s')}</strong>
+              <span>${formatNumber(row.contentViewed || 0)} vieron contenido · ${formatNumber(row.contentNotViewed || 0)} no lo vieron</span>
+              <small>${esc(row.viewedRateLabel || '0%')} de los inicios</small>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderContent(report) {
+      const split = report.contentSplit || {};
+      const rate = Math.max(0, Math.min(100, Number(split.viewedRate) || 0));
+      els.donut.style.setProperty('--angle', `${rate * 3.6}deg`);
+      els.contentRate.textContent = split.viewedRateLabel || `${Math.round(rate)}%`;
+      els.contentViewed.textContent = formatNumber(split.viewed || 0);
+      els.contentNotViewed.textContent = formatNumber(split.notViewed || 0);
+      els.contentWatch.textContent = split.avgWatchLabel || '0s';
+    }
+
+    function renderRecent(report) {
+      const items = Array.isArray(report.recentEvents) ? report.recentEvents : [];
+      if (!items.length) {
+        els.recentList.innerHTML = '<div class="empty">Aun no hay actividad relevante.</div>';
+        return;
+      }
+
+      els.recentList.innerHTML = items.map((item) => {
+        const badgeClass = eventClass(item.event);
+        return `
+          <article class="event-row">
+            <span class="badge ${badgeClass}">${esc(friendlyEvent(item.event))}</span>
+            <div>
+              <strong>${esc(item.detail || '')}</strong>
+              <small>${esc(item.event || '')}</small>
+            </div>
+            <time>${esc(item.time || '--')}</time>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadReport(period) {
+      const response = await fetch(`/api/report-lite?period=${encodeURIComponent(period)}`, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`No se pudo cargar el reporte (${response.status})`);
+      }
+      return response.json();
+    }
+
+    async function refresh() {
+      els.refreshBtn.disabled = true;
+      els.refreshBtn.textContent = 'Cargando...';
+
+      try {
+        const report = await loadReport(state.period);
+        state.report = report;
+        renderHero(report);
+        renderSummary(report);
+        renderDaily(report);
+        renderContent(report);
+        renderRecent(report);
+      } catch (error) {
+        console.error(error);
+        els.statusCopy.textContent = 'No se pudo cargar el reporte.';
+        els.dailyList.innerHTML = '<div class="empty">No se pudo cargar el reporte.</div>';
+        els.recentList.innerHTML = '<div class="empty">No se pudo cargar el reporte.</div>';
+      } finally {
+        els.refreshBtn.disabled = false;
+        els.refreshBtn.textContent = 'Actualizar';
+      }
+    }
+
+    els.refreshBtn.addEventListener('click', refresh);
+    renderPeriods();
+    refresh();
+  </script>
+</body>
+</html>
